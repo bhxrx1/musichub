@@ -34,10 +34,12 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
 // Search Execution
 async function performSearch() {
   const query = searchInput.value.trim();
-  resultsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted);">Searching...</div>`;
+  const provider = document.getElementById("providerSelect") ? document.getElementById("providerSelect").value : "";
+  resultsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted);">Searching ${provider ? provider.toUpperCase() : 'all sources'}...</div>`;
   
   try {
-    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+    const url = `/api/search?q=${encodeURIComponent(query)}${provider ? `&provider=${encodeURIComponent(provider)}` : ''}`;
+    const res = await fetch(url);
     const data = await res.json();
     renderResults(data.results || []);
   } catch (err) {
@@ -49,6 +51,9 @@ searchBtn.addEventListener("click", performSearch);
 searchInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") performSearch();
 });
+if (document.getElementById("providerSelect")) {
+  document.getElementById("providerSelect").addEventListener("change", performSearch);
+}
 
 function renderResults(items) {
   if (items.length === 0) {
@@ -60,12 +65,18 @@ function renderResults(items) {
     const cover = item.artwork_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop";
     const yearBadge = item.year ? `<span class="tag-year">${item.year}</span>` : "";
     const typeBadge = item.item_type === "album" ? `[Album - ${item.track_count || 0} Tracks]` : `[Single Song]`;
+    const providerBadge = item.provider === "pagalnew" 
+      ? `<span style="background:#0284c7; color:white; border-radius:4px; padding:2px 6px; font-size:0.75rem; font-weight:600;">PagalNew</span>`
+      : `<span style="background:#64748b; color:white; border-radius:4px; padding:2px 6px; font-size:0.75rem; font-weight:600;">Mock</span>`;
 
     return `
       <div class="music-card" onclick="openItemDetails('${item.provider}', '${item.id}', '${item.item_type}', '${item.album_id || item.id}')">
         <img class="card-cover" src="${cover}" alt="${item.title}" onerror="this.src='https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop'" />
         <div class="card-body">
-          <div class="card-title">${item.title}</div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.25rem;">
+            <div class="card-title">${item.title}</div>
+            ${providerBadge}
+          </div>
           <div class="card-artists">${item.artists.join(", ") || "Various Artists"}</div>
           <div class="card-meta">
             <span>${typeBadge}</span>

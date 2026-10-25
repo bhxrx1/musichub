@@ -50,6 +50,11 @@
             placeholder="Search by album title, artist, composer, movie, song, year..."
           />
         </div>
+        <select id="providerSelect" style="background: var(--bg-secondary); color: var(--text-main); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0 1rem; font-size: 0.95rem; cursor: pointer;">
+          <option value="">All Sources</option>
+          <option value="pagalnew" selected>PagalNew (Live Web)</option>
+          <option value="mock">Local Mock Provider</option>
+        </select>
         <button id="searchBtn" class="btn-primary">Search</button>
       </div>
 

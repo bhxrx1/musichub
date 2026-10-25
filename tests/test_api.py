@@ -80,7 +80,7 @@ async def test_api_settings_and_diagnostics(async_client, temp_env):
     assert diag_res.status_code == 200
     diag_data = diag_res.json()
     assert len(diag_data) >= 1
-    assert diag_data[0]["healthy"] is True
+    assert any(d["provider_id"] == "mock" and d["healthy"] for d in diag_data)
 
     # Get settings
     get_res = await async_client.get("/api/settings")

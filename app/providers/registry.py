@@ -1,12 +1,14 @@
 from typing import Dict, List, Optional
 from .base import BaseMusicProvider
 from .mock_provider import MockMusicProvider
+from .pagalnew_provider import PagalnewMusicProvider
 from ..models.domain import ProviderInfo, SearchResultItem
 
 class ProviderRegistry:
     def __init__(self):
         self._providers: Dict[str, BaseMusicProvider] = {}
-        # Register default mock provider
+        # Register both PagalNew real provider and Mock provider
+        self.register(PagalnewMusicProvider())
         self.register(MockMusicProvider())
 
     def register(self, provider: BaseMusicProvider) -> None:
@@ -32,6 +34,7 @@ class ProviderRegistry:
         if provider_id and provider_id in self._providers:
             providers = [self._providers[provider_id]]
         else:
+            # Query active providers; PagalNew first, then others
             providers = list(self._providers.values())
 
         for p in providers:
@@ -39,8 +42,7 @@ class ProviderRegistry:
                 res = await p.search(query)
                 results.extend(res)
             except Exception as e:
-                # Log provider search failure and continue
-                print(f"Error querying provider {p.provider_id}: {e}")
+                print(f"[Registry] Error querying provider {p.provider_id}: {e}")
 
         return results
 
