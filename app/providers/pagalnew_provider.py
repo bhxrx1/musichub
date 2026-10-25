@@ -10,15 +10,26 @@ from .base import BaseMusicProvider
 from ..models.domain import Album, Track, QualityOption, SearchResultItem
 from ..models.schemas import ProviderDiagnosticResponse
 from ..database import db
+from ..config import settings
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 MusicHub/1.0"
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 MusicHub/1.2"
 )
 
+CATEGORIES = {
+    "bollywood-2026": "/category/bollywood-mp3-songs/1/2026",
+    "bollywood-2025": "/category/bollywood-mp3-songs/1/2025",
+    "bollywood-tracks": "/category/bollywood-tracks",
+    "indipop": "/category/indipop-mp3-tracks",
+    "punjabi": "/category/punjabi-mp3-tracks",
+    "haryanvi": "/category/haryanvi-mp3-tracks",
+    "bhojpuri": "/category/bhojpuri-mp3-tracks",
+}
+
 class PagalnewMusicProvider(BaseMusicProvider):
-    def __init__(self, base_url: str = "https://pagalnew.com", http_client: Optional[httpx.AsyncClient] = None):
-        self._base_url = base_url.rstrip("/")
+    def __init__(self, base_url: Optional[str] = None, http_client: Optional[httpx.AsyncClient] = None):
+        self._base_url = (base_url or settings.pagalnew_base_url).rstrip("/")
         self._client = http_client
         self._track_fetch_semaphore = asyncio.Semaphore(5)
 
@@ -58,6 +69,22 @@ class PagalnewMusicProvider(BaseMusicProvider):
         if m:
             return m.group(1)
         return clean.strip("/").split("/")[-1].replace(".html", "")
+
+    async def browse_category(self, category_key: str = "bollywood-2026") -> List[SearchResultItem]:
+        path = CATEGORIES.get(category_key, f"/category/{category_key}")
+        url = f"{self._base_url}{path}"
+        client = self._get_client()
+        try:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                return []
+            return self.parse_search_html(resp.text)
+        except Exception as e:
+            print(f"[PagalNew] Category browse error for '{category_key}': {e}")
+            return []
+        finally:
+            if not self._client:
+                await client.aclose()
 
     async def search(self, query: str, search_type: str = "all") -> List[SearchResultItem]:
         q = query.strip()

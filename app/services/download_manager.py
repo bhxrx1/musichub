@@ -10,6 +10,7 @@ from ..database import db
 from ..models.domain import DownloadTask, DownloadStatus, Track, Album, QualityOption
 from .security import validate_download_url, SecurityError
 from .storage import storage
+from .metadata import metadata_service
 
 class DownloadManager:
     def __init__(self):
@@ -61,6 +62,12 @@ class DownloadManager:
                 target_file_path=str(target_path),
                 status=DownloadStatus.SKIPPED_QUALITY,
                 error_message="Skipped: Strict 320 kbps mode active and no confirmed 320 kbps stream exists.",
+                track_number=track.track_number or 1,
+                total_tracks=len(album.tracks) if album and album.tracks else None,
+                year=album.year,
+                composer=track.composer or album.composer,
+                genre=album.language or "Bollywood",
+                artwork_url=track.artwork_url or album.artwork_url,
                 created_at=now,
                 updated_at=now
             )
@@ -73,6 +80,7 @@ class DownloadManager:
         # Validate SSRF
         validate_download_url(quality.download_url)
 
+        # Resolve album-based file path with clean title
         target_path = storage.resolve_track_path(
             artist=", ".join(track.artists),
             album=album.title,
@@ -96,6 +104,12 @@ class DownloadManager:
             total_bytes=quality.file_size_bytes or 0,
             downloaded_bytes=0,
             retries_left=settings.max_retries,
+            track_number=track.track_number or 1,
+            total_tracks=len(album.tracks) if album and album.tracks else None,
+            year=album.year,
+            composer=track.composer or album.composer,
+            genre=album.language or "Bollywood",
+            artwork_url=track.artwork_url or album.artwork_url,
             created_at=now,
             updated_at=now
         )
@@ -165,7 +179,7 @@ class DownloadManager:
         part_path = storage.get_partial_path(final_path)
 
         # If file already exists and complete
-        if final_path.exists() and task.total_bytes > 0 and final_path.stat().st_size == task.total_bytes:
+        if final_path.exists() and task.total_bytes > 0 and final_path.stat().st_size >= task.total_bytes:
             task.status = DownloadStatus.COMPLETED
             task.downloaded_bytes = task.total_bytes
             task.completed_at = time.time()
@@ -193,7 +207,7 @@ class DownloadManager:
                 # Determine existing bytes for HTTP Range Resume
                 existing_bytes = part_path.stat().st_size if part_path.exists() else 0
                 headers = {
-                    "User-Agent": "MusicHub/1.0 (Windows NT 10.0; Win64; x64) DownloadManager"
+                    "User-Agent": "MusicHub/1.2 (Windows NT 10.0; Win64; x64) DownloadManager"
                 }
                 if existing_bytes > 0:
                     headers["Range"] = f"bytes={existing_bytes}-"
@@ -201,13 +215,12 @@ class DownloadManager:
                 timeout = httpx.Timeout(settings.request_timeout_seconds, connect=10.0)
                 async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
                     async with client.stream("GET", task.download_url, headers=headers) as resp:
-                        # Handle 416 Range Not Satisfiable (e.g. server content changed or existing_bytes invalid)
+                        # Handle 416 Range Not Satisfiable
                         if resp.status_code == 416:
                             existing_bytes = 0
                             if part_path.exists():
                                 part_path.unlink()
                             headers.pop("Range", None)
-                            # Retry without range
                             async with client.stream("GET", task.download_url, headers=headers) as retry_resp:
                                 await self._stream_to_disk(retry_resp, task, part_path, final_path, 0, cancel_event)
                                 return
@@ -216,18 +229,13 @@ class DownloadManager:
 
                         # Determine mode and initial bytes
                         if resp.status_code == 206:
-                            # Resuming supported
-                            file_mode = "ab"
                             initial_bytes = existing_bytes
-                            # Parse total from Content-Range: bytes 1024-2047/5000000
                             content_range = resp.headers.get("Content-Range", "")
                             if "/" in content_range:
                                 total_str = content_range.split("/")[-1]
                                 if total_str.isdigit():
                                     task.total_bytes = int(total_str)
                         else:
-                            # 200 OK: server does not support Range or file started from 0
-                            file_mode = "wb"
                             initial_bytes = 0
                             content_len = resp.headers.get("Content-Length")
                             if content_len and content_len.isdigit():
@@ -253,7 +261,6 @@ class DownloadManager:
                     db.save_task(task)
                     return
 
-                # Exponential backoff with cancellation wait
                 backoff = settings.retry_backoff_factor * (1.5 ** (attempt - 1))
                 try:
                     await asyncio.wait_for(cancel_event.wait(), timeout=backoff)
@@ -294,7 +301,7 @@ class DownloadManager:
 
                 now = time.time()
                 time_diff = now - last_time
-                if time_diff >= 0.5:  # Update progress twice per second
+                if time_diff >= 0.5:
                     speed = bytes_since_last / time_diff
                     remaining_bytes = max(0, task.total_bytes - downloaded)
                     eta = remaining_bytes / speed if speed > 0 else None
@@ -308,20 +315,61 @@ class DownloadManager:
                     last_time = now
                     bytes_since_last = 0
 
-        # Finished reading all chunks
+        # Finished receiving all audio bytes
         if task.total_bytes == 0:
             task.total_bytes = downloaded
         task.downloaded_bytes = downloaded
         task.speed_bps = 0.0
         task.eta_seconds = 0.0
-        task.status = DownloadStatus.COMPLETED
-        task.completed_at = time.time()
-        task.updated_at = time.time()
+
+        # --- ID3 Metadata & Artwork Pipeline ---
+        try:
+            # Reconstruct models for tagger
+            trk_model = Track(
+                id=task.track_id,
+                album_id=task.album_id,
+                provider=task.provider,
+                title=task.title,
+                artists=[a.strip() for a in task.artist.split(",") if a.strip()],
+                composer=task.composer,
+                track_number=task.track_number or 1,
+                artwork_url=task.artwork_url,
+                qualities=[]
+            )
+            alb_model = Album(
+                id=task.album_id,
+                provider=task.provider,
+                title=task.album_title,
+                year=task.year,
+                artists=[a.strip() for a in task.artist.split(",") if a.strip()],
+                composer=task.composer,
+                language=task.genre or "Bollywood",
+                artwork_url=task.artwork_url,
+                tracks=[]
+            )
+
+            # Retrieve artwork if present
+            cover_bytes, cover_mime = await metadata_service.fetch_artwork_bytes(task.artwork_url)
+
+            # Apply ID3 tags to .part file using Mutagen atomic pipeline
+            metadata_service.apply_id3_metadata(
+                file_path=part_path,
+                track=trk_model,
+                album=alb_model,
+                cover_bytes=cover_bytes,
+                cover_mime=cover_mime or "image/jpeg"
+            )
+        except Exception as tag_err:
+            print(f"[DownloadManager] Non-fatal ID3 metadata warning for '{task.title}': {tag_err}")
 
         # Atomic rename .part -> final target file
         if final_path.exists():
             final_path.unlink()
         part_path.rename(final_path)
+
+        task.status = DownloadStatus.COMPLETED
+        task.completed_at = time.time()
+        task.updated_at = time.time()
 
         db.save_task(task)
         db.record_completed_history(task)

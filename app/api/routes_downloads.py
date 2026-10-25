@@ -29,7 +29,31 @@ async def get_download_queue():
 
 @downloads_router.get("/history", response_model=List[Dict[str, Any]])
 async def get_download_history():
-    return db.get_history(limit=50)
+    return db.get_history(limit=100)
+
+@downloads_router.post("/history/clear")
+async def clear_download_history():
+    """Clears completed history records from database. Does not delete files on disk."""
+    count = db.clear_history()
+    return {"status": "success", "cleared_count": count}
+
+@downloads_router.post("/queue/clear-pending")
+async def clear_pending_queue():
+    """Removes pending tasks from queue without affecting active downloads or completed files."""
+    count = db.clear_pending_tasks()
+    return {"status": "success", "cleared_count": count}
+
+@downloads_router.post("/queue/clear-failed")
+async def clear_failed_queue():
+    """Removes failed, cancelled, and skipped tasks from queue view."""
+    count = db.clear_failed_tasks()
+    return {"status": "success", "cleared_count": count}
+
+@downloads_router.post("/queue/clear-completed")
+async def clear_completed_queue():
+    """Removes completed tasks from queue view (history and files remain intact)."""
+    count = db.clear_completed_tasks()
+    return {"status": "success", "cleared_count": count}
 
 @downloads_router.post("/start", response_model=DownloadTask)
 async def start_single_download(req: SingleDownloadRequest):

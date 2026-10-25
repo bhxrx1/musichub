@@ -41,3 +41,4 @@ class UpdateSettingsRequest(BaseModel):
     max_concurrent_downloads: Optional[int] = None
     strict_320kbps: Optional[bool] = None
     preferred_bitrate_kbps: Optional[int] = None
+    pagalnew_base_url: Optional[str] = None

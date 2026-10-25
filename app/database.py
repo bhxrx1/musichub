@@ -40,6 +40,12 @@ class Database:
                 eta_seconds REAL,
                 error_message TEXT,
                 retries_left INTEGER DEFAULT 3,
+                track_number INTEGER DEFAULT 1,
+                total_tracks INTEGER,
+                year INTEGER,
+                composer TEXT,
+                genre TEXT,
+                artwork_url TEXT,
                 created_at REAL NOT NULL,
                 updated_at REAL NOT NULL,
                 completed_at REAL
@@ -72,6 +78,20 @@ class Database:
             );
             """)
 
+            # Safe migrations for existing databases
+            for col_def in [
+                ("track_number", "INTEGER DEFAULT 1"),
+                ("total_tracks", "INTEGER"),
+                ("year", "INTEGER"),
+                ("composer", "TEXT"),
+                ("genre", "TEXT"),
+                ("artwork_url", "TEXT"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE download_tasks ADD COLUMN {col_def[0]} {col_def[1]};")
+                except sqlite3.OperationalError:
+                    pass
+
     # --- Download Task Operations ---
     def save_task(self, task: DownloadTask) -> None:
         with self.get_connection() as conn:
@@ -80,8 +100,9 @@ class Database:
                 task_id, track_id, album_id, provider, title, artist, album_title,
                 selected_bitrate, download_url, target_file_path, status,
                 total_bytes, downloaded_bytes, speed_bps, eta_seconds, error_message,
-                retries_left, created_at, updated_at, completed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                retries_left, track_number, total_tracks, year, composer, genre, artwork_url,
+                created_at, updated_at, completed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(task_id) DO UPDATE SET
                 status=excluded.status,
                 total_bytes=excluded.total_bytes,
@@ -90,6 +111,12 @@ class Database:
                 eta_seconds=excluded.eta_seconds,
                 error_message=excluded.error_message,
                 retries_left=excluded.retries_left,
+                track_number=excluded.track_number,
+                total_tracks=excluded.total_tracks,
+                year=excluded.year,
+                composer=excluded.composer,
+                genre=excluded.genre,
+                artwork_url=excluded.artwork_url,
                 updated_at=excluded.updated_at,
                 completed_at=excluded.completed_at
             """, (
@@ -97,7 +124,9 @@ class Database:
                 task.artist, task.album_title, task.selected_bitrate, task.download_url,
                 task.target_file_path, task.status.value, task.total_bytes,
                 task.downloaded_bytes, task.speed_bps, task.eta_seconds, task.error_message,
-                task.retries_left, task.created_at, task.updated_at, task.completed_at
+                task.retries_left, task.track_number, task.total_tracks, task.year,
+                task.composer, task.genre, task.artwork_url,
+                task.created_at, task.updated_at, task.completed_at
             ))
 
     def get_task(self, task_id: str) -> Optional[DownloadTask]:
@@ -120,6 +149,32 @@ class Database:
             ).fetchall()
             return [self._row_to_task(r) for r in rows]
 
+    def delete_task(self, task_id: str) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.execute("DELETE FROM download_tasks WHERE task_id = ?", (task_id,))
+            return cursor.rowcount > 0
+
+    def clear_pending_tasks(self) -> int:
+        """Removes queued tasks without cancelling active downloads."""
+        with self.get_connection() as conn:
+            cursor = conn.execute("DELETE FROM download_tasks WHERE status = ?", (DownloadStatus.QUEUED.value,))
+            return cursor.rowcount
+
+    def clear_completed_tasks(self) -> int:
+        """Removes completed tasks from download queue view (does not delete history or files)."""
+        with self.get_connection() as conn:
+            cursor = conn.execute("DELETE FROM download_tasks WHERE status = ?", (DownloadStatus.COMPLETED.value,))
+            return cursor.rowcount
+
+    def clear_failed_tasks(self) -> int:
+        """Removes failed, cancelled, and skipped tasks from download queue view."""
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM download_tasks WHERE status IN (?, ?, ?)",
+                (DownloadStatus.FAILED.value, DownloadStatus.CANCELLED.value, DownloadStatus.SKIPPED_QUALITY.value)
+            )
+            return cursor.rowcount
+
     def record_completed_history(self, task: DownloadTask) -> None:
         with self.get_connection() as conn:
             conn.execute("""
@@ -132,10 +187,16 @@ class Database:
                 task.completed_at or time.time()
             ))
 
-    def get_history(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_history(self, limit: int = 100) -> List[Dict[str, Any]]:
         with self.get_connection() as conn:
             rows = conn.execute("SELECT * FROM download_history ORDER BY completed_at DESC LIMIT ?", (limit,)).fetchall()
             return [dict(r) for r in rows]
+
+    def clear_history(self) -> int:
+        """Clears completed history records from database. Never deletes downloaded files."""
+        with self.get_connection() as conn:
+            cursor = conn.execute("DELETE FROM download_history")
+            return cursor.rowcount
 
     # --- Cache Album Operations ---
     def cache_album(self, album: Album) -> None:
@@ -159,6 +220,8 @@ class Database:
             return None
 
     def _row_to_task(self, row: sqlite3.Row) -> DownloadTask:
+        # Check if optional columns exist in row keys
+        keys = row.keys()
         return DownloadTask(
             task_id=row["task_id"],
             track_id=row["track_id"],
@@ -177,6 +240,12 @@ class Database:
             eta_seconds=row["eta_seconds"],
             error_message=row["error_message"],
             retries_left=row["retries_left"],
+            track_number=row["track_number"] if "track_number" in keys else 1,
+            total_tracks=row["total_tracks"] if "total_tracks" in keys else None,
+            year=row["year"] if "year" in keys else None,
+            composer=row["composer"] if "composer" in keys else None,
+            genre=row["genre"] if "genre" in keys else "Bollywood",
+            artwork_url=row["artwork_url"] if "artwork_url" in keys else None,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             completed_at=row["completed_at"],

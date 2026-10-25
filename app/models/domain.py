@@ -94,6 +94,12 @@ class DownloadTask(BaseModel):
     eta_seconds: Optional[float] = None
     error_message: Optional[str] = None
     retries_left: int = 3
+    track_number: Optional[int] = 1
+    total_tracks: Optional[int] = None
+    year: Optional[int] = None
+    composer: Optional[str] = None
+    genre: Optional[str] = "Bollywood"
+    artwork_url: Optional[str] = None
     created_at: float
     updated_at: float
     completed_at: Optional[float] = None

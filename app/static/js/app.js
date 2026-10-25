@@ -1,17 +1,19 @@
-// MusicHub Web Application Client
+// MusicHub Web Application Client - Milestone 3
 let currentAlbum = null;
 let queuePollInterval = null;
+let currentBrowseCategory = "bollywood-2026";
 
 // DOM Elements
 const searchInput = document.getElementById("searchInput");
 const searchBtn = document.getElementById("searchBtn");
 const resultsGrid = document.getElementById("resultsGrid");
+const browseGrid = document.getElementById("browseGrid");
 const albumModal = document.getElementById("albumModal");
 const modalClose = document.getElementById("modalClose");
 const queueTaskList = document.getElementById("queueTaskList");
 const queueBadge = document.getElementById("queueBadge");
 
-// Tabs
+// Navigation Tabs
 document.querySelectorAll(".nav-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
@@ -21,7 +23,9 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
     const target = btn.dataset.tab;
     document.getElementById(target).classList.add("active");
 
-    if (target === "tab-queue") {
+    if (target === "tab-browse") {
+      fetchBrowseCategory(currentBrowseCategory);
+    } else if (target === "tab-queue") {
       fetchQueue();
     } else if (target === "tab-history") {
       fetchHistory();
@@ -31,19 +35,41 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
   });
 });
 
+// Category Chips for Browse Website
+document.querySelectorAll(".chip-btn").forEach(chip => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll(".chip-btn").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    currentBrowseCategory = chip.dataset.category;
+    fetchBrowseCategory(currentBrowseCategory);
+  });
+});
+
+async function fetchBrowseCategory(categoryKey) {
+  browseGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 3rem;">Loading category ${categoryKey}...</div>`;
+  try {
+    const res = await fetch(`/api/browse/pagalnew/${encodeURIComponent(categoryKey)}`);
+    if (!res.ok) throw new Error("Could not load category");
+    const items = await res.json();
+    renderCards(items, browseGrid);
+  } catch (err) {
+    browseGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 2rem;">Error browsing category: ${err.message}</div>`;
+  }
+}
+
 // Search Execution
 async function performSearch() {
   const query = searchInput.value.trim();
   const provider = document.getElementById("providerSelect") ? document.getElementById("providerSelect").value : "";
-  resultsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted);">Searching ${provider ? provider.toUpperCase() : 'all sources'}...</div>`;
+  resultsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 3rem;">Searching ${provider ? provider.toUpperCase() : 'all sources'}...</div>`;
   
   try {
     const url = `/api/search?q=${encodeURIComponent(query)}${provider ? `&provider=${encodeURIComponent(provider)}` : ''}`;
     const res = await fetch(url);
     const data = await res.json();
-    renderResults(data.results || []);
+    renderCards(data.results || [], resultsGrid);
   } catch (err) {
-    resultsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--danger);">Search failed: ${err.message}</div>`;
+    resultsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 2rem;">Search failed: ${err.message}</div>`;
   }
 }
 
@@ -55,13 +81,13 @@ if (document.getElementById("providerSelect")) {
   document.getElementById("providerSelect").addEventListener("change", performSearch);
 }
 
-function renderResults(items) {
+function renderCards(items, targetContainer) {
   if (items.length === 0) {
-    resultsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 2rem;">No songs or albums found matching your search.</div>`;
+    targetContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 3rem;">No songs or albums found.</div>`;
     return;
   }
 
-  resultsGrid.innerHTML = items.map(item => {
+  targetContainer.innerHTML = items.map(item => {
     const cover = item.artwork_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop";
     const yearBadge = item.year ? `<span class="tag-year">${item.year}</span>` : "";
     const typeBadge = item.item_type === "album" ? `[Album - ${item.track_count || 0} Tracks]` : `[Single Song]`;
@@ -88,7 +114,7 @@ function renderResults(items) {
   }).join("");
 }
 
-// Album Details & Inspector
+// Album Details & Inspector Modal
 async function openItemDetails(provider, id, itemType, albumId) {
   try {
     const targetAlbumId = itemType === "album" ? id : albumId;
@@ -118,7 +144,7 @@ function displayAlbumModal(album) {
         <td style="width: 30px;"><input type="checkbox" class="track-select-box" value="${track.id}" checked /></td>
         <td>${idx + 1}</td>
         <td><b>${track.title}</b><div style="font-size:0.8rem; color:var(--text-muted);">${track.artists.join(", ")}</div></td>
-        <td>${qualities}</td>
+        <td>${qualities || '<span style="color:var(--text-muted); font-size:0.8rem;">Auto 320k</span>'}</td>
         <td>
           <button class="btn-secondary" style="padding: 0.25rem 0.5rem;" onclick="downloadSingleTrack('${track.id}')">Download</button>
         </td>
@@ -129,7 +155,6 @@ function displayAlbumModal(album) {
   updateBatchCount();
   albumModal.classList.add("active");
 
-  // Checkbox event listeners
   document.querySelectorAll(".track-select-box").forEach(cb => {
     cb.addEventListener("change", updateBatchCount);
   });
@@ -172,7 +197,7 @@ async function downloadSingleTrack(trackId) {
       const err = await res.json();
       throw new Error(err.detail || "Download failed");
     }
-    showToast("Track added to download queue!");
+    showToast("Track enqueued for download!");
     fetchQueue();
   } catch (err) {
     alert("Error: " + err.message);
@@ -210,7 +235,6 @@ document.getElementById("batchDownloadBtn").addEventListener("click", async () =
     albumModal.classList.remove("active");
     showToast(`Enqueued ${selectedTrackIds.length} tracks for download!`);
     
-    // Switch to queue tab
     document.querySelector('[data-tab="tab-queue"]').click();
   } catch (err) {
     alert("Batch download error: " + err.message);
@@ -223,7 +247,6 @@ async function fetchQueue() {
     const res = await fetch("/api/downloads/queue");
     const data = await res.json();
 
-    // Update Summary Stats
     document.getElementById("statActive").innerText = data.active_count;
     document.getElementById("statQueued").innerText = data.queued_count;
     document.getElementById("statCompleted").innerText = data.completed_count;
@@ -241,7 +264,7 @@ async function fetchQueue() {
 
 function renderQueueTasks(tasks) {
   if (tasks.length === 0) {
-    queueTaskList.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 3rem;">Download queue is empty. Search and add tracks to get started.</div>`;
+    queueTaskList.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 3rem;">Download queue is empty.</div>`;
     return;
   }
 
@@ -289,6 +312,7 @@ function renderQueueTasks(tasks) {
 }
 
 async function cancelTask(taskId) {
+  if (!confirm("Are you sure you want to cancel this download?")) return;
   await fetch(`/api/downloads/${taskId}/cancel`, { method: "POST" });
   fetchQueue();
 }
@@ -298,7 +322,32 @@ async function retryTask(taskId) {
   fetchQueue();
 }
 
-// History
+// Queue Controls
+document.getElementById("clearPendingBtn").addEventListener("click", async () => {
+  if (!confirm("Remove all pending/queued tasks? Active and completed downloads will not be affected.")) return;
+  const res = await fetch("/api/downloads/queue/clear-pending", { method: "POST" });
+  const data = await res.json();
+  showToast(`Cleared ${data.cleared_count} pending tasks`);
+  fetchQueue();
+});
+
+document.getElementById("clearCompletedQueueBtn").addEventListener("click", async () => {
+  if (!confirm("Clear completed tasks from the queue view? Your files on disk remain safe.")) return;
+  const res = await fetch("/api/downloads/queue/clear-completed", { method: "POST" });
+  const data = await res.json();
+  showToast(`Cleared ${data.cleared_count} completed tasks from view`);
+  fetchQueue();
+});
+
+document.getElementById("clearFailedQueueBtn").addEventListener("click", async () => {
+  if (!confirm("Clear failed and cancelled tasks from the queue view?")) return;
+  const res = await fetch("/api/downloads/queue/clear-failed", { method: "POST" });
+  const data = await res.json();
+  showToast(`Cleared ${data.cleared_count} failed tasks`);
+  fetchQueue();
+});
+
+// History Controls
 async function fetchHistory() {
   const tbody = document.getElementById("historyTbody");
   tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Loading history...</td></tr>`;
@@ -323,12 +372,21 @@ async function fetchHistory() {
   }
 }
 
+document.getElementById("clearHistoryBtn").addEventListener("click", async () => {
+  if (!confirm("Clear download history records? Note: Downloaded files on disk will NOT be deleted.")) return;
+  const res = await fetch("/api/downloads/history/clear", { method: "POST" });
+  const data = await res.json();
+  showToast(`Cleared ${data.cleared_count} history records`);
+  fetchHistory();
+});
+
 // Settings
 async function fetchSettings() {
   try {
     const res = await fetch("/api/settings");
     const cfg = await res.json();
     document.getElementById("settingDownloadDir").value = cfg.download_dir;
+    document.getElementById("settingPagalnewUrl").value = cfg.pagalnew_base_url || "https://pagalnew.com";
     document.getElementById("settingConcurrency").value = cfg.max_concurrent_downloads;
     document.getElementById("settingConcurrencyVal").innerText = cfg.max_concurrent_downloads;
     document.getElementById("settingStrict320k").checked = cfg.strict_320kbps;
@@ -352,6 +410,7 @@ async function fetchSettings() {
 
 document.getElementById("saveSettingsBtn").addEventListener("click", async () => {
   const downloadDir = document.getElementById("settingDownloadDir").value;
+  const pagalnewUrl = document.getElementById("settingPagalnewUrl").value;
   const maxConcurrent = parseInt(document.getElementById("settingConcurrency").value, 10);
   const strict320k = document.getElementById("settingStrict320k").checked;
 
@@ -361,6 +420,7 @@ document.getElementById("saveSettingsBtn").addEventListener("click", async () =>
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         download_dir: downloadDir,
+        pagalnew_base_url: pagalnewUrl,
         max_concurrent_downloads: maxConcurrent,
         strict_320kbps: strict320k
       })

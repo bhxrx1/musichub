@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Query, HTTPException
-from typing import Optional
+from typing import Optional, List
 from ..providers.registry import registry
 from ..models.schemas import SearchResponse
-from ..models.domain import Album, Track
+from ..models.domain import Album, Track, SearchResultItem
 
 search_router = APIRouter(prefix="/api", tags=["Search & Discovery"])
 
@@ -17,6 +17,16 @@ async def search_music(
         total_results=len(results),
         results=results
     )
+
+@search_router.get("/browse/{provider_id}/{category}", response_model=List[SearchResultItem])
+async def browse_category(provider_id: str, category: str):
+    prov = registry.get(provider_id)
+    if not prov:
+        raise HTTPException(status_code=404, detail=f"Provider '{provider_id}' not found")
+
+    if hasattr(prov, "browse_category"):
+        return await prov.browse_category(category)
+    return await prov.search(category)
 
 @search_router.get("/albums/{provider_id}/{album_id}", response_model=Album)
 async def get_album(provider_id: str, album_id: str):

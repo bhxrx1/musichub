@@ -17,6 +17,7 @@ async def get_settings() -> Dict[str, Any]:
         "max_concurrent_downloads": settings.max_concurrent_downloads,
         "strict_320kbps": settings.strict_320kbps,
         "preferred_bitrate_kbps": settings.preferred_bitrate_kbps,
+        "pagalnew_base_url": settings.pagalnew_base_url,
         "allowed_domains": list(settings.allowed_domains)
     }
 
@@ -32,7 +33,12 @@ async def update_settings(req: UpdateSettingsRequest) -> Dict[str, Any]:
         settings.strict_320kbps = req.strict_320kbps
     if req.preferred_bitrate_kbps is not None:
         settings.preferred_bitrate_kbps = req.preferred_bitrate_kbps
-        
+    if req.pagalnew_base_url:
+        settings.update_pagalnew_domain(req.pagalnew_base_url)
+        p_prov = registry.get("pagalnew")
+        if p_prov and hasattr(p_prov, "_base_url"):
+            p_prov._base_url = settings.pagalnew_base_url
+
     return await get_settings()
 
 @settings_router.get("/diagnostics/providers", response_model=List[ProviderDiagnosticResponse])

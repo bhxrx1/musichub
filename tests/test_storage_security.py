@@ -63,4 +63,4 @@ def test_storage_manager_path_traversal_defense(tmp_path: Path):
     )
     assert str(resolved).startswith(str(tmp_path))
     assert resolved.name.endswith(".mp3")
-    assert "Arijit Singh" in str(resolved)
+    assert "Awarapan 2" in str(resolved)

@@ -1,15 +1,12 @@
 import pytest
 import asyncio
-import tempfile
-import shutil
 from pathlib import Path
 import httpx
 from httpx import ASGITransport
 
 from app.config import settings
-from app.database import Database
-from app.services.storage import StorageManager
-from app.services.download_manager import DownloadManager
+from app.database import db
+from app.services import storage
 from app.main import app
 
 @pytest.fixture(scope="function")
@@ -29,15 +26,22 @@ def temp_env(tmp_path: Path):
     settings.strict_320kbps = False
 
     # Initialize isolated database and storage
-    test_db = Database(db_path=db_file)
-    test_storage = StorageManager(base_download_dir=download_dir)
+    original_db_path = db.db_path
+    original_storage_dir = storage.base_dir
+
+    db.db_path = db_file
+    db._init_db()
+    storage.base_dir = download_dir
 
     yield {
-        "db": test_db,
-        "storage": test_storage,
+        "db": db,
+        "storage": storage,
         "download_dir": download_dir,
         "db_file": db_file
     }
+
+    db.db_path = original_db_path
+    storage.base_dir = original_storage_dir
 
 @pytest.fixture
 async def async_client():
