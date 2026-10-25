@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 
 from .base import BaseMusicProvider
 from ..models.domain import Album, Track, QualityOption, SearchResultItem
-from ..models.schemas import ProviderDiagnosticResponse
+from ..models.schemas import ProviderDiagnosticResponse, CategoryBrowseResponse
 from ..database import db
 from ..config import settings
 
@@ -17,15 +17,72 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 MusicHub/1.2"
 )
 
-CATEGORIES = {
-    "bollywood-2026": "/category/bollywood-mp3-songs/1/2026",
-    "bollywood-2025": "/category/bollywood-mp3-songs/1/2025",
-    "bollywood-tracks": "/category/bollywood-tracks",
-    "indipop": "/category/indipop-mp3-tracks",
-    "punjabi": "/category/punjabi-mp3-tracks",
-    "haryanvi": "/category/haryanvi-mp3-tracks",
-    "bhojpuri": "/category/bhojpuri-mp3-tracks",
-}
+def get_category_path(category_key: str, page: int = 1) -> str:
+    """Builds PagalNew category listing URL path based on observed real-world site routes."""
+    page = max(1, page)
+    if category_key == "bollywood-2026":
+        return f"/category/bollywood-mp3-songs/{page}/2026"
+    elif category_key == "bollywood-2025":
+        return f"/category/bollywood-mp3-songs/{page}/2025"
+    elif category_key in ("bollywood-tracks", "bollywood"):
+        return f"/category/bollywood-mp3-songs/{page}"
+    elif category_key in ("indipop", "indipop-mp3-tracks"):
+        return f"/category/indipop-mp3-songs/{page}"
+    elif category_key in ("punjabi", "punjabi-mp3-tracks"):
+        return f"/category/punjabi-mp3-songs/{page}"
+    elif category_key in ("haryanvi", "haryanvi-mp3-tracks"):
+        return f"/category/haryanvi-mp3-songs/{page}"
+    elif category_key in ("bhojpuri", "bhojpuri-mp3-tracks"):
+        return f"/category/bhojpuri-mp3-songs/{page}"
+    else:
+        clean_cat = category_key.replace("-tracks", "-songs")
+        return f"/category/{clean_cat}/{page}"
+
+def parse_pagination_info(html: str, current_page: int) -> dict:
+    """Parses real PagalNew pagination bar elements from HTML."""
+    soup = BeautifulSoup(html, "html.parser")
+    pag_div = soup.find(class_="pagination")
+
+    has_prev = current_page > 1
+    has_next = False
+    total_pages = None
+    page_numbers = []
+
+    if pag_div:
+        active_el = pag_div.find(class_=re.compile(r"currentactive|active", re.I))
+        if active_el and active_el.get_text(strip=True).isdigit():
+            current_page = int(active_el.get_text(strip=True))
+
+        for a in pag_div.find_all("a"):
+            text = a.get_text(strip=True)
+            href = a.get("href", "")
+
+            if ">>" in text:
+                has_next = True
+                m = re.search(r"/(\d+)(?:/\d+)?$", href)
+                if m:
+                    total_pages = int(m.group(1))
+            elif text.isdigit():
+                num = int(text)
+                page_numbers.append(num)
+                if num > current_page:
+                    has_next = True
+
+        if not total_pages and page_numbers:
+            total_pages = max(page_numbers)
+            if current_page >= total_pages and not any(">>" in a.get_text() for a in pag_div.find_all("a")):
+                has_next = False
+    else:
+        has_next = False
+        has_prev = current_page > 1
+        total_pages = 1
+
+    return {
+        "current_page": current_page,
+        "has_next": has_next,
+        "has_prev": has_prev,
+        "total_pages": total_pages
+    }
 
 class PagalnewMusicProvider(BaseMusicProvider):
     def __init__(self, base_url: Optional[str] = None, http_client: Optional[httpx.AsyncClient] = None):
@@ -70,18 +127,56 @@ class PagalnewMusicProvider(BaseMusicProvider):
             return m.group(1)
         return clean.strip("/").split("/")[-1].replace(".html", "")
 
-    async def browse_category(self, category_key: str = "bollywood-2026") -> List[SearchResultItem]:
-        path = CATEGORIES.get(category_key, f"/category/{category_key}")
+    async def browse_category(self, category_key: str = "bollywood-2026", page: int = 1) -> CategoryBrowseResponse:
+        """Fetch and parse a category listing page with real pagination controls."""
+        path = get_category_path(category_key, page)
         url = f"{self._base_url}{path}"
         client = self._get_client()
         try:
             resp = await client.get(url)
+            if resp.status_code == 404:
+                return CategoryBrowseResponse(
+                    category=category_key,
+                    current_page=page,
+                    has_next=False,
+                    has_prev=page > 1,
+                    total_pages=None,
+                    items=[]
+                )
             if resp.status_code != 200:
-                return []
-            return self.parse_search_html(resp.text)
+                return CategoryBrowseResponse(
+                    category=category_key,
+                    current_page=page,
+                    has_next=False,
+                    has_prev=page > 1,
+                    total_pages=None,
+                    items=[]
+                )
+
+            items = self.parse_search_html(resp.text)
+            pag_info = parse_pagination_info(resp.text, current_page=page)
+
+            if not items:
+                pag_info["has_next"] = False
+
+            return CategoryBrowseResponse(
+                category=category_key,
+                current_page=pag_info["current_page"],
+                has_next=pag_info["has_next"],
+                has_prev=pag_info["has_prev"],
+                total_pages=pag_info["total_pages"],
+                items=items
+            )
         except Exception as e:
-            print(f"[PagalNew] Category browse error for '{category_key}': {e}")
-            return []
+            print(f"[PagalNew] Category browse error for '{category_key}' page {page}: {e}")
+            return CategoryBrowseResponse(
+                category=category_key,
+                current_page=page,
+                has_next=False,
+                has_prev=page > 1,
+                total_pages=None,
+                items=[]
+            )
         finally:
             if not self._client:
                 await client.aclose()

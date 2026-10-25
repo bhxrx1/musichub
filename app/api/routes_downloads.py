@@ -7,7 +7,8 @@ from ..models.domain import DownloadTask, DownloadStatus
 from ..models.schemas import (
     SingleDownloadRequest,
     BatchDownloadRequest,
-    DownloadQueueResponse
+    DownloadQueueResponse,
+    QueueControlResponse
 )
 
 downloads_router = APIRouter(prefix="/api/downloads", tags=["Download Manager"])
@@ -17,14 +18,46 @@ async def get_download_queue():
     tasks = db.list_tasks(limit=100)
     active = sum(1 for t in tasks if t.status == DownloadStatus.DOWNLOADING)
     queued = sum(1 for t in tasks if t.status == DownloadStatus.QUEUED)
+    paused = sum(1 for t in tasks if t.status == DownloadStatus.PAUSED)
     completed = sum(1 for t in tasks if t.status == DownloadStatus.COMPLETED)
     failed = sum(1 for t in tasks if t.status in (DownloadStatus.FAILED, DownloadStatus.CANCELLED, DownloadStatus.SKIPPED_QUALITY))
     return DownloadQueueResponse(
         active_count=active,
         queued_count=queued,
+        paused_count=paused,
         completed_count=completed,
         failed_count=failed,
         tasks=tasks
+    )
+
+@downloads_router.post("/queue/pause-all", response_model=QueueControlResponse)
+async def pause_all_downloads():
+    """Pauses all active and queued downloads."""
+    affected = download_manager.pause_all()
+    return QueueControlResponse(
+        action="pause_all",
+        affected_count=affected,
+        message=f"Paused {affected} active/queued task(s)."
+    )
+
+@downloads_router.post("/queue/resume-all", response_model=QueueControlResponse)
+async def resume_all_downloads():
+    """Resumes all paused downloads."""
+    affected = await download_manager.resume_all()
+    return QueueControlResponse(
+        action="resume_all",
+        affected_count=affected,
+        message=f"Resumed {affected} paused task(s)."
+    )
+
+@downloads_router.post("/queue/cancel-all", response_model=QueueControlResponse)
+async def cancel_all_downloads():
+    """Cancels all active, queued, and paused downloads, removing partial .part files."""
+    affected = download_manager.cancel_all()
+    return QueueControlResponse(
+        action="cancel_all",
+        affected_count=affected,
+        message=f"Cancelled {affected} active/queued task(s)."
     )
 
 @downloads_router.get("/history", response_model=List[Dict[str, Any]])
@@ -104,6 +137,20 @@ async def start_batch_download(req: BatchDownloadRequest):
         strict_320k=req.strict_320k
     )
     return tasks
+
+@downloads_router.post("/{task_id}/pause")
+async def pause_download(task_id: str):
+    success = download_manager.pause_task(task_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found or cannot be paused")
+    return {"status": "paused", "task_id": task_id}
+
+@downloads_router.post("/{task_id}/resume")
+async def resume_download(task_id: str):
+    success = download_manager.resume_task(task_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found or cannot be resumed")
+    return {"status": "resumed", "task_id": task_id}
 
 @downloads_router.post("/{task_id}/cancel")
 async def cancel_download(task_id: str):

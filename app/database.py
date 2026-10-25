@@ -149,6 +149,19 @@ class Database:
             ).fetchall()
             return [self._row_to_task(r) for r in rows]
 
+    def get_tasks_by_status(self, statuses: List[DownloadStatus]) -> List[DownloadTask]:
+        """Returns tasks matching any of the specified statuses."""
+        if not statuses:
+            return []
+        placeholders = ",".join("?" for _ in statuses)
+        vals = [s.value for s in statuses]
+        with self.get_connection() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM download_tasks WHERE status IN ({placeholders}) ORDER BY created_at ASC",
+                vals
+            ).fetchall()
+            return [self._row_to_task(r) for r in rows]
+
     def delete_task(self, task_id: str) -> bool:
         with self.get_connection() as conn:
             cursor = conn.execute("DELETE FROM download_tasks WHERE task_id = ?", (task_id,))

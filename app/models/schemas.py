@@ -7,6 +7,14 @@ class SearchResponse(BaseModel):
     total_results: int
     results: List[SearchResultItem]
 
+class CategoryBrowseResponse(BaseModel):
+    category: str
+    current_page: int
+    has_next: bool
+    has_prev: bool
+    total_pages: Optional[int] = None
+    items: List[SearchResultItem]
+
 class BatchDownloadRequest(BaseModel):
     provider: str
     album_id: str
@@ -25,6 +33,7 @@ class SingleDownloadRequest(BaseModel):
 class DownloadQueueResponse(BaseModel):
     active_count: int
     queued_count: int
+    paused_count: int = 0
     completed_count: int
     failed_count: int
     tasks: List[DownloadTask]
@@ -42,3 +51,17 @@ class UpdateSettingsRequest(BaseModel):
     strict_320kbps: Optional[bool] = None
     preferred_bitrate_kbps: Optional[int] = None
     pagalnew_base_url: Optional[str] = None
+
+class BrowseFolderRequest(BaseModel):
+    current_path: Optional[str] = None
+
+class BrowseFolderResponse(BaseModel):
+    selected_path: Optional[str] = None
+    cancelled: bool = False
+    available: bool = True
+    error: Optional[str] = None
+
+class QueueControlResponse(BaseModel):
+    action: str
+    affected_count: int
+    message: str

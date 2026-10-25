@@ -500,10 +500,47 @@ main {
 
 .status-DOWNLOADING { background: #0284c7; color: white; }
 .status-QUEUED { background: #d97706; color: white; }
+.status-PAUSED { background: #6366f1; color: white; }
 .status-COMPLETED { background: #059669; color: white; }
 .status-FAILED { background: #dc2626; color: white; }
 .status-CANCELLED { background: #4b5563; color: white; }
 .status-SKIPPED_QUALITY { background: #ea580c; color: white; }
+
+/* Pagination Controls */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 2rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.page-indicator {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+  background: var(--bg-secondary);
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+/* Toolbar Groups & Dividers */
+.toolbar-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border-color);
+  margin: 0 0.25rem;
+}
 
 /* Settings Form */
 .settings-box {

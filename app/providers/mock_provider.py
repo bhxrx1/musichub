@@ -2,7 +2,7 @@ import time
 from typing import List, Optional, Dict
 from .base import BaseMusicProvider
 from ..models.domain import Album, Track, QualityOption, SearchResultItem
-from ..models.schemas import ProviderDiagnosticResponse
+from ..models.schemas import ProviderDiagnosticResponse, CategoryBrowseResponse
 
 MOCK_ALBUMS: Dict[str, Album] = {}
 MOCK_TRACKS: Dict[str, Track] = {}
@@ -207,6 +207,41 @@ class MockMusicProvider(BaseMusicProvider):
                 ))
 
         return results
+
+    async def browse_category(self, category_key: str = "bollywood-2026", page: int = 1) -> CategoryBrowseResponse:
+        """Browse mock category with pagination support."""
+        if page == 1:
+            items = []
+            for alb in MOCK_ALBUMS.values():
+                items.append(SearchResultItem(
+                    id=alb.id,
+                    provider=self.provider_id,
+                    item_type="album",
+                    title=alb.title,
+                    album_title=alb.title,
+                    year=alb.year,
+                    artists=alb.artists,
+                    composer=alb.composer,
+                    artwork_url=alb.artwork_url,
+                    track_count=len(alb.tracks),
+                    album_id=alb.id
+                ))
+            return CategoryBrowseResponse(
+                category=category_key,
+                current_page=1,
+                has_next=False,
+                has_prev=False,
+                total_pages=1,
+                items=items
+            )
+        return CategoryBrowseResponse(
+            category=category_key,
+            current_page=page,
+            has_next=False,
+            has_prev=True,
+            total_pages=1,
+            items=[]
+        )
 
     async def get_album(self, album_id: str) -> Optional[Album]:
         return MOCK_ALBUMS.get(album_id)

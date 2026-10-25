@@ -2,6 +2,8 @@
 let currentAlbum = null;
 let queuePollInterval = null;
 let currentBrowseCategory = "bollywood-2026";
+let currentBrowsePage = 1;
+let currentBrowseTotalPages = null;
 
 // DOM Elements
 const searchInput = document.getElementById("searchInput");
@@ -12,6 +14,23 @@ const albumModal = document.getElementById("albumModal");
 const modalClose = document.getElementById("modalClose");
 const queueTaskList = document.getElementById("queueTaskList");
 const queueBadge = document.getElementById("queueBadge");
+
+const browsePagination = document.getElementById("browsePagination");
+const browsePrevBtn = document.getElementById("browsePrevBtn");
+const browseNextBtn = document.getElementById("browseNextBtn");
+const browsePageIndicator = document.getElementById("browsePageIndicator");
+
+const pauseAllBtn = document.getElementById("pauseAllBtn");
+const resumeAllBtn = document.getElementById("resumeAllBtn");
+const cancelAllBtn = document.getElementById("cancelAllBtn");
+const clearPendingBtn = document.getElementById("clearPendingBtn");
+const clearCompletedQueueBtn = document.getElementById("clearCompletedQueueBtn");
+const clearFailedQueueBtn = document.getElementById("clearFailedQueueBtn");
+const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+
+const browseFolderBtn = document.getElementById("browseFolderBtn");
+const settingFolderError = document.getElementById("settingFolderError");
+const saveSettingsBtn = document.getElementById("saveSettingsBtn");
 
 // Navigation Tabs
 document.querySelectorAll(".nav-btn").forEach(btn => {
@@ -24,7 +43,7 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
     document.getElementById(target).classList.add("active");
 
     if (target === "tab-browse") {
-      fetchBrowseCategory(currentBrowseCategory);
+      fetchBrowseCategory(currentBrowseCategory, currentBrowsePage);
     } else if (target === "tab-queue") {
       fetchQueue();
     } else if (target === "tab-history") {
@@ -41,20 +60,58 @@ document.querySelectorAll(".chip-btn").forEach(chip => {
     document.querySelectorAll(".chip-btn").forEach(c => c.classList.remove("active"));
     chip.classList.add("active");
     currentBrowseCategory = chip.dataset.category;
-    fetchBrowseCategory(currentBrowseCategory);
+    fetchBrowseCategory(currentBrowseCategory, 1); // Reset to page 1 on category switch
   });
 });
 
-async function fetchBrowseCategory(categoryKey) {
-  browseGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 3rem;">Loading category ${categoryKey}...</div>`;
+// Real Pagination for Browse Website
+async function fetchBrowseCategory(categoryKey, page = 1) {
+  currentBrowseCategory = categoryKey;
+  currentBrowsePage = page;
+
+  if (browsePrevBtn) browsePrevBtn.disabled = true;
+  if (browseNextBtn) browseNextBtn.disabled = true;
+
+  browseGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 3rem;">Loading ${categoryKey} (page ${page})...</div>`;
+  
   try {
-    const res = await fetch(`/api/browse/pagalnew/${encodeURIComponent(categoryKey)}`);
+    const res = await fetch(`/api/browse/pagalnew/${encodeURIComponent(categoryKey)}?page=${page}`);
     if (!res.ok) throw new Error("Could not load category");
-    const items = await res.json();
-    renderCards(items, browseGrid);
+    const data = await res.json();
+    
+    renderCards(data.items || [], browseGrid);
+
+    if (browsePagination) {
+      browsePagination.style.display = "flex";
+      currentBrowseTotalPages = data.total_pages;
+
+      const pageText = data.total_pages
+        ? `Page ${data.current_page} of ${data.total_pages}`
+        : `Page ${data.current_page}`;
+      browsePageIndicator.innerText = pageText;
+
+      browsePrevBtn.disabled = !data.has_prev;
+      browseNextBtn.disabled = !data.has_next;
+    }
   } catch (err) {
     browseGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 2rem;">Error browsing category: ${err.message}</div>`;
   }
+}
+
+if (browsePrevBtn) {
+  browsePrevBtn.addEventListener("click", () => {
+    if (currentBrowsePage > 1) {
+      fetchBrowseCategory(currentBrowseCategory, currentBrowsePage - 1);
+      window.scrollTo({ top: browseGrid.offsetTop - 80, behavior: "smooth" });
+    }
+  });
+}
+
+if (browseNextBtn) {
+  browseNextBtn.addEventListener("click", () => {
+    fetchBrowseCategory(currentBrowseCategory, currentBrowsePage + 1);
+    window.scrollTo({ top: browseGrid.offsetTop - 80, behavior: "smooth" });
+  });
 }
 
 // Search Execution
@@ -83,7 +140,7 @@ if (document.getElementById("providerSelect")) {
 
 function renderCards(items, targetContainer) {
   if (items.length === 0) {
-    targetContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 3rem;">No songs or albums found.</div>`;
+    targetContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 3rem;">No songs or albums found on this page.</div>`;
     return;
   }
 
@@ -119,7 +176,7 @@ async function openItemDetails(provider, id, itemType, albumId) {
   try {
     const targetAlbumId = itemType === "album" ? id : albumId;
     const res = await fetch(`/api/albums/${provider}/${targetAlbumId}`);
-    if (!res.ok) throw new Error("Could not load album metadata");
+    if (!res.ok) throw new Error("Could not load complete album metadata");
     
     currentAlbum = await res.json();
     displayAlbumModal(currentAlbum);
@@ -249,12 +306,22 @@ async function fetchQueue() {
 
     document.getElementById("statActive").innerText = data.active_count;
     document.getElementById("statQueued").innerText = data.queued_count;
+    document.getElementById("statPaused").innerText = data.paused_count || 0;
     document.getElementById("statCompleted").innerText = data.completed_count;
     document.getElementById("statFailed").innerText = data.failed_count;
 
     const totalInFlight = data.active_count + data.queued_count;
     queueBadge.innerText = totalInFlight;
     queueBadge.style.display = totalInFlight > 0 ? "inline-block" : "none";
+
+    // Update global buttons disabled state
+    const hasActiveOrQueued = (data.active_count + data.queued_count) > 0;
+    const hasPaused = (data.paused_count || 0) > 0;
+    const hasAnyInQueue = hasActiveOrQueued || hasPaused;
+
+    if (pauseAllBtn) pauseAllBtn.disabled = !hasActiveOrQueued;
+    if (resumeAllBtn) resumeAllBtn.disabled = !hasPaused;
+    if (cancelAllBtn) cancelAllBtn.disabled = !hasAnyInQueue;
 
     renderQueueTasks(data.tasks);
   } catch (err) {
@@ -275,13 +342,16 @@ function renderQueueTasks(tasks) {
     const speedKb = (t.speed_bps / 1024).toFixed(0);
     const etaStr = t.eta_seconds != null ? `${t.eta_seconds.toFixed(0)}s remaining` : "";
 
-    const cancelButton = ["QUEUED", "DOWNLOADING"].includes(t.status)
-      ? `<button class="btn-secondary" style="padding: 0.2rem 0.6rem; color: #f87171;" onclick="cancelTask('${t.task_id}')">Cancel</button>`
-      : "";
-    
-    const retryButton = ["FAILED", "CANCELLED"].includes(t.status)
-      ? `<button class="btn-secondary" style="padding: 0.2rem 0.6rem;" onclick="retryTask('${t.task_id}')">Retry</button>`
-      : "";
+    let actionButtons = "";
+    if (["QUEUED", "DOWNLOADING"].includes(t.status)) {
+      actionButtons += `<button class="btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="pauseTask('${t.task_id}')">Pause</button>`;
+      actionButtons += `<button class="btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; color: #f87171;" onclick="cancelTask('${t.task_id}')">Cancel</button>`;
+    } else if (t.status === "PAUSED") {
+      actionButtons += `<button class="btn-primary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="resumeTask('${t.task_id}')">Resume</button>`;
+      actionButtons += `<button class="btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; color: #f87171;" onclick="cancelTask('${t.task_id}')">Cancel</button>`;
+    } else if (["FAILED", "CANCELLED"].includes(t.status)) {
+      actionButtons += `<button class="btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="retryTask('${t.task_id}')">Retry</button>`;
+    }
 
     const errorDetails = t.error_message ? `<div style="font-size:0.8rem; color:#f87171; margin-top:4px;">${t.error_message}</div>` : "";
 
@@ -292,10 +362,9 @@ function renderQueueTasks(tasks) {
             <span class="task-title">${t.title}</span>
             <span style="font-size: 0.85rem; color: var(--text-muted); margin-left: 0.5rem;">(${t.artist} — ${t.album_title})</span>
           </div>
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
             <span class="status-pill status-${t.status}">${t.status}</span>
-            ${cancelButton}
-            ${retryButton}
+            ${actionButtons}
           </div>
         </div>
         <div class="progress-container">
@@ -317,35 +386,80 @@ async function cancelTask(taskId) {
   fetchQueue();
 }
 
+async function pauseTask(taskId) {
+  await fetch(`/api/downloads/${taskId}/pause`, { method: "POST" });
+  fetchQueue();
+}
+
+async function resumeTask(taskId) {
+  await fetch(`/api/downloads/${taskId}/resume`, { method: "POST" });
+  fetchQueue();
+}
+
 async function retryTask(taskId) {
   await fetch(`/api/downloads/${taskId}/retry`, { method: "POST" });
   fetchQueue();
 }
 
-// Queue Controls
-document.getElementById("clearPendingBtn").addEventListener("click", async () => {
-  if (!confirm("Remove all pending/queued tasks? Active and completed downloads will not be affected.")) return;
-  const res = await fetch("/api/downloads/queue/clear-pending", { method: "POST" });
-  const data = await res.json();
-  showToast(`Cleared ${data.cleared_count} pending tasks`);
-  fetchQueue();
-});
+// Global Queue Controls
+if (pauseAllBtn) {
+  pauseAllBtn.addEventListener("click", async () => {
+    const res = await fetch("/api/downloads/queue/pause-all", { method: "POST" });
+    const data = await res.json();
+    showToast(data.message || "Paused active/queued downloads");
+    fetchQueue();
+  });
+}
 
-document.getElementById("clearCompletedQueueBtn").addEventListener("click", async () => {
-  if (!confirm("Clear completed tasks from the queue view? Your files on disk remain safe.")) return;
-  const res = await fetch("/api/downloads/queue/clear-completed", { method: "POST" });
-  const data = await res.json();
-  showToast(`Cleared ${data.cleared_count} completed tasks from view`);
-  fetchQueue();
-});
+if (resumeAllBtn) {
+  resumeAllBtn.addEventListener("click", async () => {
+    const res = await fetch("/api/downloads/queue/resume-all", { method: "POST" });
+    const data = await res.json();
+    showToast(data.message || "Resumed paused downloads");
+    fetchQueue();
+  });
+}
 
-document.getElementById("clearFailedQueueBtn").addEventListener("click", async () => {
-  if (!confirm("Clear failed and cancelled tasks from the queue view?")) return;
-  const res = await fetch("/api/downloads/queue/clear-failed", { method: "POST" });
-  const data = await res.json();
-  showToast(`Cleared ${data.cleared_count} failed tasks`);
-  fetchQueue();
-});
+if (cancelAllBtn) {
+  cancelAllBtn.addEventListener("click", async () => {
+    if (!confirm("Are you sure you want to cancel all active, queued, and paused downloads?\nCompleted files and history will NOT be deleted.")) return;
+    const res = await fetch("/api/downloads/queue/cancel-all", { method: "POST" });
+    const data = await res.json();
+    showToast(data.message || "Cancelled all active/queued downloads");
+    fetchQueue();
+  });
+}
+
+// Queue Maintenance Controls
+if (clearPendingBtn) {
+  clearPendingBtn.addEventListener("click", async () => {
+    if (!confirm("Remove all pending/queued tasks? Active and completed downloads will not be affected.")) return;
+    const res = await fetch("/api/downloads/queue/clear-pending", { method: "POST" });
+    const data = await res.json();
+    showToast(`Cleared ${data.cleared_count} pending tasks`);
+    fetchQueue();
+  });
+}
+
+if (clearCompletedQueueBtn) {
+  clearCompletedQueueBtn.addEventListener("click", async () => {
+    if (!confirm("Clear completed tasks from the queue view? Your files on disk remain safe.")) return;
+    const res = await fetch("/api/downloads/queue/clear-completed", { method: "POST" });
+    const data = await res.json();
+    showToast(`Cleared ${data.cleared_count} completed tasks from view`);
+    fetchQueue();
+  });
+}
+
+if (clearFailedQueueBtn) {
+  clearFailedQueueBtn.addEventListener("click", async () => {
+    if (!confirm("Clear failed and cancelled tasks from the queue view?")) return;
+    const res = await fetch("/api/downloads/queue/clear-failed", { method: "POST" });
+    const data = await res.json();
+    showToast(`Cleared ${data.cleared_count} failed tasks`);
+    fetchQueue();
+  });
+}
 
 // History Controls
 async function fetchHistory() {
@@ -372,15 +486,17 @@ async function fetchHistory() {
   }
 }
 
-document.getElementById("clearHistoryBtn").addEventListener("click", async () => {
-  if (!confirm("Clear download history records? Note: Downloaded files on disk will NOT be deleted.")) return;
-  const res = await fetch("/api/downloads/history/clear", { method: "POST" });
-  const data = await res.json();
-  showToast(`Cleared ${data.cleared_count} history records`);
-  fetchHistory();
-});
+if (clearHistoryBtn) {
+  clearHistoryBtn.addEventListener("click", async () => {
+    if (!confirm("Clear download history records? Note: Downloaded files on disk will NOT be deleted.")) return;
+    const res = await fetch("/api/downloads/history/clear", { method: "POST" });
+    const data = await res.json();
+    showToast(`Cleared ${data.cleared_count} history records`);
+    fetchHistory();
+  });
+}
 
-// Settings
+// Settings & Native Folder Picker
 async function fetchSettings() {
   try {
     const res = await fetch("/api/settings");
@@ -408,29 +524,79 @@ async function fetchSettings() {
   }
 }
 
-document.getElementById("saveSettingsBtn").addEventListener("click", async () => {
-  const downloadDir = document.getElementById("settingDownloadDir").value;
-  const pagalnewUrl = document.getElementById("settingPagalnewUrl").value;
-  const maxConcurrent = parseInt(document.getElementById("settingConcurrency").value, 10);
-  const strict320k = document.getElementById("settingStrict320k").checked;
+if (browseFolderBtn) {
+  browseFolderBtn.addEventListener("click", async () => {
+    browseFolderBtn.disabled = true;
+    browseFolderBtn.innerText = "Opening Picker...";
+    if (settingFolderError) settingFolderError.style.display = "none";
 
-  try {
-    const res = await fetch("/api/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        download_dir: downloadDir,
-        pagalnew_base_url: pagalnewUrl,
-        max_concurrent_downloads: maxConcurrent,
-        strict_320kbps: strict320k
-      })
-    });
-    if (!res.ok) throw new Error("Failed to save settings");
-    showToast("Settings updated successfully!");
-  } catch (err) {
-    alert("Error saving settings: " + err.message);
-  }
-});
+    try {
+      const currentVal = document.getElementById("settingDownloadDir").value;
+      const res = await fetch("/api/settings/browse-folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_path: currentVal })
+      });
+      const data = await res.json();
+
+      if (data.selected_path) {
+        document.getElementById("settingDownloadDir").value = data.selected_path;
+        showToast("Folder selected: " + data.selected_path);
+      } else if (data.cancelled) {
+        // User closed or cancelled dialog
+      } else if (!data.available || data.error) {
+        if (settingFolderError) {
+          settingFolderError.innerText = data.error || "Native folder picker is unavailable. You can enter or paste the path directly.";
+          settingFolderError.style.display = "block";
+        }
+      }
+    } catch (err) {
+      if (settingFolderError) {
+        settingFolderError.innerText = "Error launching folder picker: " + err.message;
+        settingFolderError.style.display = "block";
+      }
+    } finally {
+      browseFolderBtn.disabled = false;
+      browseFolderBtn.innerText = "📁 Browse Folder";
+    }
+  });
+}
+
+if (saveSettingsBtn) {
+  saveSettingsBtn.addEventListener("click", async () => {
+    const downloadDir = document.getElementById("settingDownloadDir").value;
+    const pagalnewUrl = document.getElementById("settingPagalnewUrl").value;
+    const maxConcurrent = parseInt(document.getElementById("settingConcurrency").value, 10);
+    const strict320k = document.getElementById("settingStrict320k").checked;
+
+    if (settingFolderError) settingFolderError.style.display = "none";
+
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          download_dir: downloadDir,
+          pagalnew_base_url: pagalnewUrl,
+          max_concurrent_downloads: maxConcurrent,
+          strict_320kbps: strict320k
+        })
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || "Failed to save settings");
+      }
+      showToast("Settings updated successfully!");
+    } catch (err) {
+      if (settingFolderError) {
+        settingFolderError.innerText = err.message;
+        settingFolderError.style.display = "block";
+      } else {
+        alert("Error saving settings: " + err.message);
+      }
+    }
+  });
+}
 
 document.getElementById("settingConcurrency").addEventListener("input", (e) => {
   document.getElementById("settingConcurrencyVal").innerText = e.target.value;
