@@ -118,6 +118,22 @@ musichub/
 
 ---
 
+## Providers Supported
+
+1. **PagalNew (`pagalnew`):**
+   - **Live Real-World Adapter:** Direct integration with `https://pagalnew.com`.
+   - **Search:** Queries `/search.php?find={query}` across albums, singers, composers, and songs.
+   - **Album Inspector:** Parses complete tracklists, composers, starcasts, release years, and cover artwork.
+   - **Audio Quality:** Exposes confirmed `320 kbps` and `128 kbps` options directly from track pages.
+   - **Batch Downloads:** Performs controlled, bounded-concurrency downloads across entire albums.
+   - **Caching:** SQLite caching of album metadata to minimise network roundtrips.
+
+2. **Local Mock Provider (`mock`):**
+   - Built-in offline catalogue (`Awarapan 2`, `Rockstar`, etc.) for deterministic testing and local development.
+   - Paired with local `/mock-cdn/stream` simulator for byte-range resumable download verification.
+
+---
+
 ## API Summary
 
 - `GET /api/search?q={query}&provider={id}` — Search songs and albums.
