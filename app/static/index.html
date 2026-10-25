@@ -3,80 +3,156 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MusicHub — Music Discovery & Download Manager</title>
+  <title>MusicHub — High Fidelity Music Discovery & Download Manager</title>
   <link rel="stylesheet" href="/static/css/app.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2338bdf8'><path d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d4af87'><path d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/></svg>" />
 </head>
 <body>
-  <!-- Header & Primary Nav -->
-  <header>
+  <!-- Ambient Backdrop Lighting Glows -->
+  <div class="ambient-glow glow-top"></div>
+  <div class="ambient-glow glow-bottom-right"></div>
+  <div class="ambient-glow glow-bottom-left"></div>
+
+  <!-- Header & Primary Glass Navigation -->
+  <header class="app-header">
     <div class="brand">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-      </svg>
-      MusicHub
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18V5l12-2v13"></path>
+          <circle cx="6" cy="18" r="3"></circle>
+          <circle cx="18" cy="16" r="3"></circle>
+        </svg>
+      </div>
+      <span class="brand-name">MusicHub</span>
+      <span class="brand-tag">Lossless Master</span>
     </div>
-    <nav class="nav-tabs">
-      <button class="nav-btn active" data-tab="tab-search">
-        🔍 Discover & Search
+
+    <nav class="nav-glass-bar" role="navigation" aria-label="Main Navigation">
+      <button class="nav-btn active" data-tab="tab-search" id="navSearch">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <span>Discover & Search</span>
       </button>
-      <button class="nav-btn" data-tab="tab-browse">
-        🌐 Browse Website
+
+      <button class="nav-btn" data-tab="tab-browse" id="navBrowse">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="2" y1="12" x2="22" y2="12"></line>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+        </svg>
+        <span>Browse Website</span>
       </button>
-      <button class="nav-btn" data-tab="tab-queue">
-        📥 Download Queue
-        <span class="badge" id="queueBadge" style="display: none;">0</span>
+
+      <button class="nav-btn" data-tab="tab-queue" id="navQueue">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>Download Queue</span>
+        <span class="nav-badge" id="queueBadge" style="display: none;">0</span>
       </button>
-      <button class="nav-btn" data-tab="tab-history">
-        📜 History
+
+      <button class="nav-btn" data-tab="tab-history" id="navHistory">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span>History</span>
       </button>
-      <button class="nav-btn" data-tab="tab-settings">
-        ⚙️ Settings
+
+      <button class="nav-btn" data-tab="tab-settings" id="navSettings">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>Settings</span>
       </button>
     </nav>
   </header>
 
-  <!-- Main Content Area -->
-  <main class="container">
+  <!-- Main Container -->
+  <main class="app-container">
     <!-- TAB 1: Search & Discover -->
-    <section id="tab-search" class="tab-pane active">
-      <div class="search-section">
-        <div class="search-bar">
-          <input 
-            type="text" 
-            id="searchInput" 
-            placeholder="Search movie, album, singer (e.g. Arijit Singh), composer, or song title..." 
-            value="Awarapan"
-          />
-          <button id="searchBtn" class="btn-primary">Search</button>
-        </div>
-        <div class="search-filters">
-          <label>Provider:
-            <select id="providerSelect">
-              <option value="">All Active Sources</option>
-              <option value="pagalnew" selected>PagalNew (Live Web)</option>
-              <option value="mock">Local Mock Provider</option>
-            </select>
-          </label>
+    <section id="tab-search" class="tab-pane active" aria-labelledby="navSearch">
+      <div class="search-hero">
+        <h1 class="hero-title">Discover Music in High Fidelity</h1>
+        <p class="hero-subtitle">Search complete movie albums, singers, music directors, or standalone tracks with verified 320 kbps bitrate options.</p>
+
+        <div class="search-glass-card">
+          <div class="search-input-wrapper">
+            <svg class="search-field-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+              type="text" 
+              id="searchInput" 
+              class="search-input"
+              placeholder="Search songs, albums, movies or artists..." 
+              value="Awarapan"
+              autocomplete="off"
+            />
+            <button id="searchClearInputBtn" class="search-input-clear" title="Clear input text" aria-label="Clear input text">&times;</button>
+          </div>
+
+          <div class="search-actions-row">
+            <div class="provider-pill-select">
+              <label for="providerSelect" class="provider-label">Source:</label>
+              <select id="providerSelect" class="glass-select">
+                <option value="">All Sources</option>
+                <option value="pagalnew" selected>PagalNew (Live Web)</option>
+                <option value="mock">Local Mock Provider</option>
+              </select>
+            </div>
+
+            <div class="search-buttons-group">
+              <button id="searchBtn" class="btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                Search
+              </button>
+              <button id="searchClearAllBtn" class="btn-secondary" title="Clear transient search results and reset search view">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 6h18"></path>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                Clear All
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="cards-grid" id="resultsGrid">
-        <!-- Results populated dynamically via app.js -->
+      <!-- Results Grid -->
+      <div class="results-header-bar" id="resultsHeaderBar">
+        <h2 class="section-title" id="resultsTitle">Search Results</h2>
+        <span class="results-counter" id="resultsCount"></span>
+      </div>
+
+      <div class="cards-grid" id="resultsGrid" aria-live="polite">
+        <!-- Cards dynamically injected via app.js -->
       </div>
     </section>
 
     <!-- TAB 2: Browse Website (Direct Category & Year Explorer) -->
-    <section id="tab-browse" class="tab-pane">
-      <div class="browse-header-notice" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
-        <div>
-          <h3 style="font-size: 1.05rem; margin-bottom: 0.25rem; color: var(--text-main);">Direct Category & Album Explorer</h3>
-          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
-            Browsing categories from PagalNew with real multi-page pagination. Click any album to inspect full tracklists and start batch downloads.
-          </p>
+    <section id="tab-browse" class="tab-pane" aria-labelledby="navBrowse">
+      <div class="glass-card browse-notice-card">
+        <div class="notice-text">
+          <h3>PagalNew Live Category Explorer</h3>
+          <p>Browse official categories and archive pages with real multi-page pagination. Open complete movie albums or download standalone songs with full metadata preservation.</p>
         </div>
-        <a id="externalSiteLink" href="https://pagalnew.com" target="_blank" rel="noopener noreferrer" class="btn-secondary" style="white-space: nowrap; text-decoration: none;">
-          Open PagalNew ↗
+        <a id="externalSiteLink" href="https://pagalnew.com" target="_blank" rel="noopener noreferrer" class="btn-secondary external-link">
+          Open PagalNew
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
         </a>
       </div>
 
@@ -86,191 +162,318 @@
         <button class="chip-btn" data-category="bollywood-tracks">Bollywood Trending</button>
         <button class="chip-btn" data-category="indipop">Hindi Pop / Indipop</button>
         <button class="chip-btn" data-category="punjabi">Punjabi Mp3</button>
-        <button class="chip-btn" data-category="haryanvi">Haryanvi Songs</button>
-        <button class="chip-btn" data-category="bhojpuri">Bhojpuri Tracks</button>
+        <button class="chip-btn" data-category="haryanvi">Haryanvi</button>
+        <button class="chip-btn" data-category="bhojpuri">Bhojpuri</button>
       </div>
 
-      <div class="cards-grid" id="browseGrid">
+      <div class="cards-grid" id="browseGrid" aria-live="polite">
         <!-- Rendered via app.js -->
       </div>
 
       <!-- Real Pagination Bar -->
       <div class="pagination-bar" id="browsePagination" style="display: none;">
-        <button id="browsePrevBtn" class="btn-secondary" disabled>← Previous</button>
-        <span id="browsePageIndicator" class="page-indicator">Page 1</span>
-        <button id="browseNextBtn" class="btn-secondary">Next →</button>
+        <button id="browsePrevBtn" class="btn-secondary pagination-btn" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          Previous
+        </button>
+        <div class="page-indicator" id="browsePageIndicator">Page 1</div>
+        <button id="browseNextBtn" class="btn-secondary pagination-btn">
+          Next
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
       </div>
     </section>
 
-    <!-- TAB 3: Download Queue -->
-    <section id="tab-queue" class="tab-pane">
-      <div class="queue-summary">
+    <!-- TAB 3: Download Queue (Premium Control Centre) -->
+    <section id="tab-queue" class="tab-pane" aria-labelledby="navQueue">
+      <div class="queue-overview-grid">
         <div class="stat-card">
+          <div class="stat-icon icon-active">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          </div>
           <div class="stat-value" id="statActive">0</div>
-          <div class="stat-label">Active Downloads</div>
+          <div class="stat-label">Active Transfers</div>
         </div>
+
         <div class="stat-card">
+          <div class="stat-icon icon-queued">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
           <div class="stat-value" id="statQueued">0</div>
-          <div class="stat-label">Queued Tasks</div>
+          <div class="stat-label">Queued</div>
         </div>
+
         <div class="stat-card">
+          <div class="stat-icon icon-paused">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+          </div>
           <div class="stat-value" id="statPaused">0</div>
           <div class="stat-label">Paused</div>
         </div>
+
         <div class="stat-card">
+          <div class="stat-icon icon-completed">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
           <div class="stat-value" id="statCompleted">0</div>
           <div class="stat-label">Completed</div>
         </div>
+
         <div class="stat-card">
+          <div class="stat-icon icon-failed">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+          </div>
           <div class="stat-value" id="statFailed">0</div>
           <div class="stat-label">Failed / Skipped</div>
         </div>
       </div>
 
-      <div class="actions-toolbar">
-        <div class="toolbar-group">
-          <button id="pauseAllBtn" class="btn-secondary" title="Pause all active and queued downloads">⏸ Pause All</button>
-          <button id="resumeAllBtn" class="btn-primary" title="Resume all paused downloads">▶ Resume All</button>
-          <button id="cancelAllBtn" class="btn-outline-danger" title="Cancel all active and queued downloads">⏹ Cancel All</button>
+      <div class="queue-toolbar-card">
+        <div class="toolbar-title-group">
+          <h3>Download Tasks</h3>
+          <span class="subtext">Polite asynchronous queue respecting concurrency limit</span>
         </div>
-        <div class="toolbar-divider"></div>
-        <div class="toolbar-group">
-          <button id="clearPendingBtn" class="btn-secondary" style="font-size: 0.8rem;">Clear Pending</button>
-          <button id="clearCompletedQueueBtn" class="btn-secondary" style="font-size: 0.8rem;">Clear Completed</button>
-          <button id="clearFailedQueueBtn" class="btn-outline-danger" style="font-size: 0.8rem;">Clear Failed</button>
+
+        <div class="toolbar-controls-cluster">
+          <div class="toolbar-group">
+            <button id="pauseAllBtn" class="btn-secondary btn-sm" title="Pause all active and queued downloads">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+              Pause All
+            </button>
+            <button id="resumeAllBtn" class="btn-primary btn-sm" title="Resume all paused downloads">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              Resume All
+            </button>
+            <button id="cancelAllBtn" class="btn-outline-danger btn-sm" title="Cancel active and queued downloads">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+              Cancel All
+            </button>
+          </div>
+
+          <div class="toolbar-divider"></div>
+
+          <div class="toolbar-group">
+            <button id="clearPendingBtn" class="btn-ghost btn-xs">Clear Pending</button>
+            <button id="clearCompletedQueueBtn" class="btn-ghost btn-xs">Clear Completed</button>
+            <button id="clearFailedQueueBtn" class="btn-ghost-danger btn-xs">Clear Failed</button>
+          </div>
         </div>
       </div>
 
-      <div class="task-list" id="queueTaskList">
+      <div class="task-list" id="queueTaskList" aria-live="polite">
         <!-- Download tasks dynamically rendered -->
       </div>
     </section>
 
     <!-- TAB 4: History -->
-    <section id="tab-history" class="tab-pane">
-      <div class="actions-toolbar">
-        <h2>Download History</h2>
-        <button id="clearHistoryBtn" class="btn-outline-danger">Clear History Records</button>
-      </div>
+    <section id="tab-history" class="tab-pane" aria-labelledby="navHistory">
+      <div class="glass-card table-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Persistent Download History</h2>
+            <p class="subtext">Stored in SQLite database. Clearing history records will not remove downloaded MP3 files from your disk.</p>
+          </div>
+          <button id="clearHistoryBtn" class="btn-outline-danger btn-sm">Clear History Records</button>
+        </div>
 
-      <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow-x: auto;">
-        <table class="tracklist-table" style="width: 100%;">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Artist</th>
-              <th>Album</th>
-              <th>Bitrate</th>
-              <th>Saved Location</th>
-            </tr>
-          </thead>
-          <tbody id="historyTbody">
-            <!-- Rendered via app.js -->
-          </tbody>
-        </table>
+        <div class="table-container">
+          <table class="glass-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Artist / Singer</th>
+                <th>Album</th>
+                <th>Bitrate</th>
+                <th>Saved Path</th>
+              </tr>
+            </thead>
+            <tbody id="historyTbody">
+              <!-- Rendered via app.js -->
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
 
-    <!-- TAB 5: Settings & Health -->
-    <section id="tab-settings" class="tab-pane">
-      <div class="settings-box">
-        <h2 style="margin-bottom: 1.25rem;">Storage & Provider Settings</h2>
-        
-        <div class="form-group">
-          <label for="settingDownloadDir">Root Music Download Directory</label>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <input type="text" id="settingDownloadDir" class="form-control" style="flex: 1;" />
-            <button type="button" id="browseFolderBtn" class="btn-secondary" style="white-space: nowrap; height: 38px;">
-              📁 Browse Folder
-            </button>
+    <!-- TAB 5: Settings & Diagnostics -->
+    <section id="tab-settings" class="tab-pane" aria-labelledby="navSettings">
+      <div class="glass-card settings-panel">
+        <div class="panel-header">
+          <h2>Storage & Application Settings</h2>
+          <p class="subtext">Configure your target music library directory, website provider endpoints, and quality policies.</p>
+        </div>
+
+        <div class="settings-form">
+          <div class="form-group">
+            <label for="settingDownloadDir">Root Music Download Directory</label>
+            <div class="input-with-button">
+              <input type="text" id="settingDownloadDir" class="glass-input" />
+              <button type="button" id="browseFolderBtn" class="btn-secondary" title="Open native Windows folder dialog">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Browse Folder
+              </button>
+            </div>
+            <div id="settingFolderError" class="form-error-msg" style="display: none;"></div>
+            <span class="field-hint">Organised automatically by Album folder: <code>&lt;download_dir&gt;\&lt;Album Title&gt;\&lt;Song Title.mp3&gt;</code></span>
           </div>
-          <small id="settingFolderError" style="color: var(--danger); display: none; margin-top: 0.35rem; font-weight: 500;"></small>
-          <small style="color: var(--text-muted); display: block; margin-top: 0.25rem;">Organised automatically by Album folder: <code>&lt;download_dir&gt;\&lt;Album Title&gt;\&lt;Song Title.mp3&gt;</code></small>
+
+          <div class="form-group">
+            <label for="settingPagalnewUrl">PagalNew Base Domain URL</label>
+            <input type="text" id="settingPagalnewUrl" class="glass-input" />
+            <span class="field-hint">Centralised domain configuration. Updating this dynamically updates SSRF domain security whitelists.</span>
+          </div>
+
+          <div class="form-group">
+            <div class="slider-header">
+              <label for="settingConcurrency">Maximum Concurrent Downloads</label>
+              <span class="slider-badge" id="settingConcurrencyVal">3</span>
+            </div>
+            <input type="range" id="settingConcurrency" class="glass-range" min="1" max="10" value="3" />
+            <span class="field-hint">Polite concurrent connection ceiling preventing remote server throttling.</span>
+          </div>
+
+          <div class="form-group checkbox-group">
+            <label class="custom-checkbox-label">
+              <input type="checkbox" id="settingStrict320k" class="custom-checkbox" />
+              <span class="checkbox-box"></span>
+              <span class="checkbox-text">
+                <strong>Strict 320 kbps Mode</strong>
+                <small>Automatically skip tracks where the provider only offers lower bitrates (e.g., 128 kbps).</small>
+              </span>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button id="saveSettingsBtn" class="btn-primary">Save Settings</button>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="settingPagalnewUrl">PagalNew Base Domain URL</label>
-          <input type="text" id="settingPagalnewUrl" class="form-control" />
-          <small style="color: var(--text-muted);">Centralised domain configuration. Note: If changing domain, revalidate website structure and endpoints.</small>
+        <div class="settings-divider"></div>
+
+        <div class="diagnostics-section">
+          <h3>Source Provider Diagnostics & Health</h3>
+          <p class="subtext">Live connectivity testing and round-trip response latency for configured music providers.</p>
+
+          <div class="table-container">
+            <table class="glass-table">
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th>Status</th>
+                  <th>Latency</th>
+                  <th>Operational Message</th>
+                </tr>
+              </thead>
+              <tbody id="diagTbody">
+                <!-- Diagnostics populated here -->
+              </tbody>
+            </table>
+          </div>
         </div>
-
-        <div class="form-group">
-          <label>Max Concurrent Downloads: <span id="settingConcurrencyVal">3</span></label>
-          <input type="range" id="settingConcurrency" min="1" max="10" value="3" style="width: 100%;" />
-        </div>
-
-        <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
-          <input type="checkbox" id="settingStrict320k" />
-          <label for="settingStrict320k" style="margin-bottom: 0; cursor: pointer;">Strict 320 kbps Mode (Skip tracks without confirmed 320 kbps option)</label>
-        </div>
-
-        <button id="saveSettingsBtn" class="btn-primary" style="margin-top: 1rem;">Save Settings</button>
-
-        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 2rem 0;" />
-
-        <h3 style="margin-bottom: 0.75rem;">Source Diagnostics & Latency</h3>
-        <table class="tracklist-table" style="width: 100%;">
-          <thead>
-            <tr>
-              <th>Provider</th>
-              <th>Status</th>
-              <th>Latency</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody id="diagTbody">
-            <!-- Diagnostics populated here -->
-          </tbody>
-        </table>
       </div>
     </section>
   </main>
 
-  <!-- Album Details & Batch Modal -->
-  <div class="modal-overlay" id="albumModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button class="modal-close" id="modalClose">&times;</button>
-        <img id="modalCover" class="modal-cover" src="" alt="Album Artwork" />
-        <div class="modal-meta">
-          <h2 id="modalTitle" style="font-size: 1.5rem; margin-bottom: 0.25rem;"></h2>
-          <div id="modalArtists" style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 0.25rem;"></div>
-          <div id="modalComposer" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.25rem;"></div>
-          <div id="modalStarcast" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;"></div>
-          <div id="modalYear" style="color: var(--accent-primary); font-size: 0.85rem; font-weight: 600;"></div>
+  <!-- MODAL 1: Album Details & Batch Download Inspector -->
+  <div class="modal-overlay" id="albumModal" role="dialog" aria-modal="true" aria-labelledby="modalAlbumTitle">
+    <div class="modal-glass-container">
+      <button class="modal-close-btn" id="modalClose" aria-label="Close album modal">&times;</button>
+      
+      <div class="modal-hero">
+        <img id="modalCover" class="modal-hero-cover" src="" alt="Album Artwork" />
+        <div class="modal-hero-meta">
+          <div class="modal-type-badge">Full Album Release</div>
+          <h2 id="modalAlbumTitle" class="modal-title"></h2>
+          <div id="modalArtists" class="modal-artists"></div>
+          <div id="modalComposer" class="modal-meta-row"></div>
+          <div id="modalStarcast" class="modal-meta-row"></div>
+          <div id="modalYear" class="modal-year-badge"></div>
         </div>
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <label style="font-size: 0.9rem;">Audio Quality:
-            <select id="qualitySelectModal" style="background: var(--bg-tertiary); color: var(--text-main); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.35rem 0.6rem;">
+      <div class="modal-toolbar">
+        <div class="modal-quality-group">
+          <label for="qualitySelectModal">Quality:
+            <select id="qualitySelectModal" class="glass-select-sm">
               <option value="320" selected>Prefer 320 kbps (Highest Quality)</option>
               <option value="128">128 kbps (Standard Quality)</option>
             </select>
           </label>
-          <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
-            <input type="checkbox" id="strict320kModal" /> Strict 320k Only
+          <label class="custom-checkbox-label modal-checkbox">
+            <input type="checkbox" id="strict320kModal" class="custom-checkbox" />
+            <span class="checkbox-box"></span>
+            <span class="checkbox-text">Strict 320k Only</span>
           </label>
         </div>
+
         <button id="batchDownloadBtn" class="btn-primary">Download Selected (0)</button>
       </div>
 
-      <div style="max-height: 380px; overflow-y: auto;">
-        <table class="tracklist-table">
+      <div class="modal-tracklist-scroll">
+        <table class="glass-table tracklist-table">
           <thead>
             <tr>
-              <th style="width: 30px;"><input type="checkbox" id="selectAllCheckbox" checked /></th>
-              <th>#</th>
-              <th>Title / Singers</th>
+              <th style="width: 38px;"><input type="checkbox" id="selectAllCheckbox" checked /></th>
+              <th style="width: 38px;">#</th>
+              <th>Track Title & Artists</th>
               <th>Available Bitrates</th>
-              <th>Action</th>
+              <th style="text-align: right;">Action</th>
             </tr>
           </thead>
           <tbody id="tracklistTbody">
             <!-- Populated via app.js -->
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Individual Song Details & Download -->
+  <div class="modal-overlay" id="songModal" role="dialog" aria-modal="true" aria-labelledby="songModalTitle">
+    <div class="modal-glass-container modal-song-container">
+      <button class="modal-close-btn" id="songModalClose" aria-label="Close song modal">&times;</button>
+      
+      <div class="song-modal-body">
+        <div class="song-modal-left">
+          <img id="songModalCover" class="song-modal-cover" src="" alt="Song Artwork" />
+        </div>
+
+        <div class="song-modal-right">
+          <div class="modal-type-badge badge-song">Standalone Song</div>
+          <h2 id="songModalTitle" class="modal-title"></h2>
+          <div id="songModalArtists" class="modal-artists"></div>
+          <div id="songModalAlbum" class="song-album-info"></div>
+          <div id="songModalComposer" class="modal-meta-row"></div>
+
+          <div class="song-quality-picker">
+            <label class="section-label">Select Audio Quality</label>
+            <div id="songQualitiesList" class="quality-options-cluster">
+              <!-- Dynamically populated bitrates -->
+            </div>
+          </div>
+
+          <div class="song-strict-toggle">
+            <label class="custom-checkbox-label">
+              <input type="checkbox" id="songStrict320k" class="custom-checkbox" />
+              <span class="checkbox-box"></span>
+              <span class="checkbox-text">Strict 320k Mode (Skip if unconfirmed)</span>
+            </label>
+          </div>
+
+          <div class="song-actions-row">
+            <button id="songDownloadBtn" class="btn-primary btn-large">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Download Track
+            </button>
+            <button id="songCancelBtn" class="btn-secondary">Close</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -465,9 +465,13 @@ class PagalnewMusicProvider(BaseMusicProvider):
 
         # Album link & id
         album_id = "unknown"
+        album_title = None
         album_link = soup.find("a", href=re.compile(r"/album/.*\.html"))
         if album_link:
             album_id = self._extract_slug(album_link["href"], "/album")
+            raw_alb_text = album_link.get_text(strip=True)
+            if raw_alb_text:
+                album_title = re.sub(r"\s*Mp3\s*Songs?.*$", "", raw_alb_text, flags=re.IGNORECASE).strip()
 
         # Artwork
         img = soup.find("img", alt=lambda a: a and "cover" in a.lower()) or soup.find("img", class_="b-lazy")
@@ -503,6 +507,7 @@ class PagalnewMusicProvider(BaseMusicProvider):
             album_id=album_id,
             provider=self.provider_id,
             title=clean_title or slug,
+            album_title=album_title,
             artists=singers,
             composer=composer,
             artwork_url=artwork,

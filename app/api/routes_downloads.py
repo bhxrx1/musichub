@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 from ..database import db
 from ..providers.registry import registry
 from ..services.download_manager import download_manager
-from ..models.domain import DownloadTask, DownloadStatus
+from ..models.domain import DownloadTask, DownloadStatus, Album
 from ..models.schemas import (
     SingleDownloadRequest,
     BatchDownloadRequest,
@@ -98,9 +98,35 @@ async def start_single_download(req: SingleDownloadRequest):
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    album = await prov.get_album(req.album_id)
-    if not album:
-        raise HTTPException(status_code=404, detail="Album not found")
+    # Resolve album:
+    # If req.album_title was explicitly given, use it for standalone track releases
+    if req.album_title:
+        album = Album(
+            id=req.album_id or f"single-{track.id}",
+            provider=track.provider,
+            title=req.album_title,
+            artists=track.artists,
+            composer=track.composer,
+            artwork_url=track.artwork_url,
+            tracks=[track]
+        )
+    else:
+        target_album_id = req.album_id or track.album_id
+        album = None
+        if target_album_id and target_album_id not in ("unknown", ""):
+            album = await prov.get_album(target_album_id)
+
+        if not album:
+            resolved_title = track.album_title or "Singles"
+            album = Album(
+                id=target_album_id or f"single-{track.id}",
+                provider=track.provider,
+                title=resolved_title,
+                artists=track.artists,
+                composer=track.composer,
+                artwork_url=track.artwork_url,
+                tracks=[track]
+            )
 
     try:
         task = await download_manager.enqueue_track(

@@ -6,6 +6,18 @@ MusicHub is a desktop-friendly music discovery and batch download application bu
 
 ## Key Features
 
+- **Premium Glassmorphism Interface:**
+  - Bespoke, desktop-first dark aesthetic featuring warm charcoal obsidian bases (`#11100F`, `#181614`), champagne and rose-gold accents (`#D4AF87`, `#E2C499`), and soft ivory typography (`#F3EFE8`).
+  - Layered translucent glass panels (`backdrop-filter: blur(20px) saturate(180%)`), delicate gold-glass borders, and subtle ambient warm lighting glows.
+  - Fully responsive across desktop (1440px / 1280px), tablet (768px), and mobile (390px).
+- **Standalone Individual Song Downloads & Inspector:**
+  - Dedicated standalone song modal (`#songModal`) allowing users to inspect song metadata, artwork, singers, composer, and available bitrates directly without being forced to open or fake an album page.
+  - Interactive audio quality cluster pills (320 kbps HD, 128 kbps) with automatic selection and Strict 320k override.
+  - Non-album songs are cleanly organised into their release folder or a dedicated `Singles/` folder (`<download_dir>/<Singles or Release>/<Clean Song Title.mp3>`), with full ID3v2.3 metadata tagging and cover artwork embedding.
+- **Search Hero & Refinement:**
+  - High-fidelity search hero with instant input clearing ("×" button), multi-provider selection, and a safe **Clear All** action.
+  - "Clear All" is strictly scoped to transient search queries and card displays—it never touches database records, active queue transfers, completed downloads, or files on disk.
+  - Distinct card badges clearly distinguish `[Album • X Tracks]` releases from `[Single Song]` items with provider labels.
 - **Unified Search:** Search across movies/albums, singers, composers, song titles, and release years.
 - **Dedicated Browse Website with Real Pagination:**
   - Real multi-page pagination (Previous, Next, Current Page indicator, and total page limits).
@@ -104,7 +116,7 @@ $env:PYTHONPATH="."
 pytest -v
 ```
 
-All 46 unit and integration tests run offline against fixtures without depending on live network conditions.
+All 53 unit and integration tests run offline against fixtures without depending on live network conditions.
 
 ### 5. Run Live Verification Scripts
 
@@ -180,6 +192,7 @@ musichub/
     ├── test_metadata_and_storage.py   # Folder hierarchy, clean titles, ID3v2.3, bitstream preservation
     ├── test_resumable_retry.py        # Range resuming & retry exhaustion tests
     ├── test_storage_security.py       # SSRF & path traversal tests
+    ├── test_standalone_songs_and_search.py # Standalone song downloads, routing & search safety tests
     └── test_api.py                    # End-to-end FastAPI endpoint tests
 ```
 

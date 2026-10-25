@@ -25,7 +25,8 @@ class BatchDownloadRequest(BaseModel):
 class SingleDownloadRequest(BaseModel):
     provider: str
     track_id: str
-    album_id: str
+    album_id: Optional[str] = None
+    album_title: Optional[str] = None
     bitrate: int = 320
     custom_url: Optional[str] = None
     strict_320k: bool = False

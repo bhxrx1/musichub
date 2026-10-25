@@ -120,7 +120,23 @@ def _init_mock_catalogue():
     MOCK_ALBUMS[alb1.id] = alb1
     MOCK_ALBUMS[alb2.id] = alb2
 
-    for t in alb1_tracks + alb2_tracks:
+    single_track = Track(
+        id="mock-trk-single-01",
+        album_id="unknown",
+        provider="mock",
+        title="Tum Hi Aana (Single)",
+        artists=["Jubin Nautiyal"],
+        composer="Payal Dev",
+        duration_seconds=245,
+        track_number=1,
+        artwork_url="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop",
+        qualities=[
+            QualityOption(bitrate_kbps=128, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-single-01/128", file_size_bytes=3900000, is_confirmed_320k=False),
+            QualityOption(bitrate_kbps=320, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-single-01/320", file_size_bytes=9800000, is_confirmed_320k=True),
+        ]
+    )
+
+    for t in alb1_tracks + alb2_tracks + [single_track]:
         MOCK_TRACKS[t.id] = t
 
 _init_mock_catalogue()

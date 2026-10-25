@@ -25,9 +25,10 @@ class QualityOption(BaseModel):
 
 class Track(BaseModel):
     id: str
-    album_id: str
+    album_id: str = "unknown"
     provider: str
     title: str
+    album_title: Optional[str] = None
     artists: List[str] = Field(default_factory=list)
     composer: Optional[str] = None
     duration_seconds: Optional[int] = None
