@@ -1,4 +1,4 @@
-// MusicHub Web Application Client - Final Master Upgrade
+// MusicHub — Final Production Client Script
 let currentAlbum = null;
 let currentTrack = null;
 let currentSongBitrate = 320;
@@ -6,8 +6,10 @@ let queuePollInterval = null;
 let currentBrowseCategory = "bollywood-2026";
 let currentBrowsePage = 1;
 let currentBrowseTotalPages = null;
+let currentSearchResults = [];
+let allHistoryItems = [];
 
-// DOM Elements
+// DOM References
 const searchInput = document.getElementById("searchInput");
 const searchBtn = document.getElementById("searchBtn");
 const searchClearInputBtn = document.getElementById("searchClearInputBtn");
@@ -15,7 +17,15 @@ const searchClearAllBtn = document.getElementById("searchClearAllBtn");
 const providerSelect = document.getElementById("providerSelect");
 const resultsGrid = document.getElementById("resultsGrid");
 const resultsCount = document.getElementById("resultsCount");
+const resultsSortSelect = document.getElementById("resultsSortSelect");
+const topbarCrumb = document.getElementById("topbarCrumb");
+
+// Browse Elements
 const browseGrid = document.getElementById("browseGrid");
+const browsePagination = document.getElementById("browsePagination");
+const browsePrevBtn = document.getElementById("browsePrevBtn");
+const browseNextBtn = document.getElementById("browseNextBtn");
+const browsePageIndicator = document.getElementById("browsePageIndicator");
 
 // Modals
 const albumModal = document.getElementById("albumModal");
@@ -34,22 +44,28 @@ const cancelAllBtn = document.getElementById("cancelAllBtn");
 const clearPendingBtn = document.getElementById("clearPendingBtn");
 const clearCompletedQueueBtn = document.getElementById("clearCompletedQueueBtn");
 const clearFailedQueueBtn = document.getElementById("clearFailedQueueBtn");
+
+// History & Settings Elements
+const historySearchInput = document.getElementById("historySearchInput");
 const clearHistoryBtn = document.getElementById("clearHistoryBtn");
-
-// Browse Elements
-const browsePagination = document.getElementById("browsePagination");
-const browsePrevBtn = document.getElementById("browsePrevBtn");
-const browseNextBtn = document.getElementById("browseNextBtn");
-const browsePageIndicator = document.getElementById("browsePageIndicator");
-
-// Settings Elements
 const browseFolderBtn = document.getElementById("browseFolderBtn");
 const settingFolderError = document.getElementById("settingFolderError");
 const saveSettingsBtn = document.getElementById("saveSettingsBtn");
 const settingConcurrency = document.getElementById("settingConcurrency");
 const settingConcurrencyVal = document.getElementById("settingConcurrencyVal");
+const sidebarMaxVal = document.getElementById("sidebarMaxVal");
+const sidebarBitrateVal = document.getElementById("sidebarBitrateVal");
+const sidebarStrictVal = document.getElementById("sidebarStrictVal");
 
-// Navigation Tabs
+// 1. Navigation Tabs & Crumb Routing
+const tabTitles = {
+  "tab-search": "Discover & Search",
+  "tab-browse": "Browse Website",
+  "tab-queue": "Download Queue",
+  "tab-history": "History",
+  "tab-settings": "Settings"
+};
+
 document.querySelectorAll(".nav-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
@@ -59,6 +75,10 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
     const target = btn.dataset.tab;
     const targetPane = document.getElementById(target);
     if (targetPane) targetPane.classList.add("active");
+
+    if (topbarCrumb && tabTitles[target]) {
+      topbarCrumb.innerText = tabTitles[target];
+    }
 
     if (target === "tab-browse") {
       fetchBrowseCategory(currentBrowseCategory, currentBrowsePage);
@@ -72,67 +92,7 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
   });
 });
 
-// Category Chips for Browse Website
-document.querySelectorAll(".chip-btn").forEach(chip => {
-  chip.addEventListener("click", () => {
-    document.querySelectorAll(".chip-btn").forEach(c => c.classList.remove("active"));
-    chip.classList.add("active");
-    currentBrowseCategory = chip.dataset.category;
-    fetchBrowseCategory(currentBrowseCategory, 1);
-  });
-});
-
-// Real Pagination for Browse Website
-async function fetchBrowseCategory(categoryKey, page = 1) {
-  currentBrowseCategory = categoryKey;
-  currentBrowsePage = page;
-
-  if (browsePrevBtn) browsePrevBtn.disabled = true;
-  if (browseNextBtn) browseNextBtn.disabled = true;
-
-  browseGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 4rem;">Loading category: ${categoryKey} (page ${page})...</div>`;
-  
-  try {
-    const res = await fetch(`/api/browse/pagalnew/${encodeURIComponent(categoryKey)}?page=${page}`);
-    if (!res.ok) throw new Error("Could not load category items");
-    const data = await res.json();
-    
-    renderCards(data.items || [], browseGrid);
-
-    if (browsePagination) {
-      browsePagination.style.display = "flex";
-      currentBrowseTotalPages = data.total_pages;
-
-      const pageText = data.total_pages
-        ? `Page ${data.current_page} of ${data.total_pages}`
-        : `Page ${data.current_page}`;
-      browsePageIndicator.innerText = pageText;
-
-      browsePrevBtn.disabled = !data.has_prev;
-      browseNextBtn.disabled = !data.has_next;
-    }
-  } catch (err) {
-    browseGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--status-failed); padding: 3rem;">Error loading category: ${err.message}</div>`;
-  }
-}
-
-if (browsePrevBtn) {
-  browsePrevBtn.addEventListener("click", () => {
-    if (currentBrowsePage > 1) {
-      fetchBrowseCategory(currentBrowseCategory, currentBrowsePage - 1);
-      window.scrollTo({ top: browseGrid.offsetTop - 80, behavior: "smooth" });
-    }
-  });
-}
-
-if (browseNextBtn) {
-  browseNextBtn.addEventListener("click", () => {
-    fetchBrowseCategory(currentBrowseCategory, currentBrowsePage + 1);
-    window.scrollTo({ top: browseGrid.offsetTop - 80, behavior: "smooth" });
-  });
-}
-
-// Search Execution
+// 2. Discover & Search: Execution & Trending Quick Chips
 async function performSearch() {
   const query = searchInput ? searchInput.value.trim() : "";
   const provider = providerSelect ? providerSelect.value : "";
@@ -145,15 +105,34 @@ async function performSearch() {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Search request failed (${res.status})`);
     const data = await res.json();
-    const items = data.results || [];
+    currentSearchResults = data.results || [];
 
     if (resultsCount) {
-      resultsCount.innerText = `Found ${items.length} ${items.length === 1 ? 'item' : 'items'}`;
+      resultsCount.innerText = `Found ${currentSearchResults.length} ${currentSearchResults.length === 1 ? 'item' : 'items'}`;
     }
-    renderCards(items, resultsGrid);
+    applySortAndRenderResults();
   } catch (err) {
     resultsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--status-failed); padding: 3rem;">Search failed: ${err.message}</div>`;
   }
+}
+
+function applySortAndRenderResults() {
+  const sortMode = resultsSortSelect ? resultsSortSelect.value : "relevance";
+  let sorted = [...currentSearchResults];
+
+  if (sortMode === "year-desc") {
+    sorted.sort((a, b) => (b.year || 0) - (a.year || 0));
+  } else if (sortMode === "year-asc") {
+    sorted.sort((a, b) => (a.year || 9999) - (b.year || 9999));
+  } else if (sortMode === "title") {
+    sorted.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+  }
+
+  renderCards(sorted, resultsGrid);
+}
+
+if (resultsSortSelect) {
+  resultsSortSelect.addEventListener("change", applySortAndRenderResults);
 }
 
 if (searchBtn) searchBtn.addEventListener("click", performSearch);
@@ -166,7 +145,7 @@ if (providerSelect) {
   providerSelect.addEventListener("change", performSearch);
 }
 
-// Search Input Clear Button
+// Clear Search Input Button
 if (searchClearInputBtn) {
   searchClearInputBtn.addEventListener("click", () => {
     searchInput.value = "";
@@ -174,15 +153,27 @@ if (searchClearInputBtn) {
   });
 }
 
-// Search Clear All Button (Scope strictly limited to transient query/results view)
+// Clear All Search Button (Transient Query/Results Scope Only)
 if (searchClearAllBtn) {
   searchClearAllBtn.addEventListener("click", () => {
     searchInput.value = "";
+    currentSearchResults = [];
     resultsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 4rem;">Search cleared. Enter a song title, movie, singer, or director above to discover music.</div>`;
     if (resultsCount) resultsCount.innerText = "";
     showToast("Search view cleared.");
   });
 }
+
+// Quick Trending Chips
+document.querySelectorAll(".quick-chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    const q = chip.dataset.query;
+    if (searchInput) {
+      searchInput.value = q;
+      performSearch();
+    }
+  });
+});
 
 // Render Music Cards (Albums vs Standalone Songs)
 function renderCards(items, targetContainer) {
@@ -233,7 +224,7 @@ async function openItemDetails(provider, id, itemType, albumId, albumTitleHint) 
   }
 }
 
-// Open Album Inspector Modal
+// 3. Album Modal & Batch Download Inspector (Prahaar Style)
 async function openAlbumModal(provider, albumId) {
   try {
     const res = await fetch(`/api/albums/${provider}/${encodeURIComponent(albumId)}`);
@@ -251,23 +242,30 @@ function displayAlbumModal(album) {
   document.getElementById("modalArtists").innerText = `Artists: ${album.artists.join(", ") || "N/A"}`;
   document.getElementById("modalComposer").innerText = album.composer ? `Composer: ${album.composer}` : "";
   document.getElementById("modalStarcast").innerText = album.starcast && album.starcast.length ? `Starcast: ${album.starcast.join(", ")}` : "";
-  document.getElementById("modalYear").innerText = album.year ? `Release Year: ${album.year}` : "";
+  
+  const tracksCount = album.tracks ? album.tracks.length : 0;
+  const yearText = album.year ? `${album.year} • ` : "";
+  const langText = album.language ? `${album.language} • ` : "";
+  document.getElementById("modalYear").innerText = `${yearText}${langText}${tracksCount} Tracks`;
   document.getElementById("modalCover").src = album.artwork_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop";
 
   const tracklistTbody = document.getElementById("tracklistTbody");
-  tracklistTbody.innerHTML = album.tracks.map((track, idx) => {
+  tracklistTbody.innerHTML = (album.tracks || []).map((track, idx) => {
     const qualities = track.qualities.map(q => `<span style="font-size:0.75rem; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px; margin-right:4px;">${q.bitrate_kbps}k</span>`).join("");
     return `
       <tr>
-        <td style="width: 38px;"><input type="checkbox" class="track-select-box" value="${track.id}" checked /></td>
-        <td style="width: 38px; color: var(--text-muted);">${idx + 1}</td>
+        <td style="width: 36px; vertical-align: middle;">
+          <input type="checkbox" class="track-select-box" value="${track.id}" checked />
+        </td>
         <td>
-          <div style="font-weight: 600; color: var(--text-pure);">${track.title}</div>
-          <div style="font-size: 0.8rem; color: var(--text-secondary);">${track.artists.join(", ")}</div>
+          <div style="font-weight: 700; color: var(--text-pure);">${track.title}</div>
+        </td>
+        <td>
+          <div style="font-size: 0.82rem; color: var(--text-secondary);">${track.artists.join(", ")}</div>
         </td>
         <td>${qualities || '<span style="color:var(--text-muted); font-size:0.8rem;">Auto 320k</span>'}</td>
-        <td style="text-align: right;">
-          <button class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="downloadSingleTrackFromAlbum('${track.id}')">Download</button>
+        <td style="text-align: right; width: 90px;">
+          <button class="btn-secondary" style="padding: 0.3rem 0.65rem; font-size: 0.78rem;" onclick="downloadSingleTrackFromAlbum('${track.id}')">Download</button>
         </td>
       </tr>
     `;
@@ -283,7 +281,13 @@ function displayAlbumModal(album) {
 
 function updateBatchCount() {
   const selected = document.querySelectorAll(".track-select-box:checked").length;
-  document.getElementById("batchDownloadBtn").innerText = `Download Selected (${selected})`;
+  const batchBtn = document.getElementById("batchDownloadBtn");
+  if (batchBtn) {
+    batchBtn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      <span>Download Selected (${selected})</span>
+    `;
+  }
 }
 
 const selectAllCb = document.getElementById("selectAllCheckbox");
@@ -371,7 +375,7 @@ if (batchDownloadBtn) {
   });
 }
 
-// Open Standalone Song Inspector Modal
+// 4. Standalone Song Modal & Download
 async function openTrackModal(provider, trackId, albumId, albumTitleHint) {
   try {
     const res = await fetch(`/api/tracks/${provider}/${encodeURIComponent(trackId)}`);
@@ -398,7 +402,6 @@ function displaySongModal(track) {
   const coverUrl = track.artwork_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop";
   document.getElementById("songModalCover").src = coverUrl;
 
-  // Build Bitrate selection pills
   const qualitiesCluster = document.getElementById("songQualitiesList");
   qualitiesCluster.innerHTML = "";
 
@@ -406,7 +409,6 @@ function displaySongModal(track) {
     ? track.qualities.map(q => q.bitrate_kbps)
     : [320, 128];
 
-  // Set default preferred bitrate to 320 if available, else first
   currentSongBitrate = availableBitrates.includes(320) ? 320 : availableBitrates[0];
 
   availableBitrates.forEach(bitrate => {
@@ -432,7 +434,6 @@ if (songModal) {
   });
 }
 
-// Download Standalone Song
 if (songDownloadBtn) {
   songDownloadBtn.addEventListener("click", async () => {
     if (!currentTrack) return;
@@ -477,26 +478,73 @@ if (songDownloadBtn) {
             <polyline points="7 10 12 15 17 10"></polyline>
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
-          Download Track
+          <span>Download Track</span>
         `;
       }
     }
   });
 }
 
-// Keyboard Accessibility: Close Modals on Escape
-window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    if (albumModal && albumModal.classList.contains("active")) {
-      albumModal.classList.remove("active");
-    }
-    if (songModal && songModal.classList.contains("active")) {
-      songModal.classList.remove("active");
-    }
-  }
+// 5. Browse Website (Direct Category & Real Pagination)
+document.querySelectorAll(".chip-btn").forEach(chip => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll(".chip-btn").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    currentBrowseCategory = chip.dataset.category;
+    fetchBrowseCategory(currentBrowseCategory, 1);
+  });
 });
 
-// Download Queue Fetching & Real-time Progress
+async function fetchBrowseCategory(categoryKey, page = 1) {
+  currentBrowseCategory = categoryKey;
+  currentBrowsePage = page;
+
+  if (browsePrevBtn) browsePrevBtn.disabled = true;
+  if (browseNextBtn) browseNextBtn.disabled = true;
+
+  browseGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 4rem;">Loading category: ${categoryKey} (page ${page})...</div>`;
+  
+  try {
+    const res = await fetch(`/api/browse/pagalnew/${encodeURIComponent(categoryKey)}?page=${page}`);
+    if (!res.ok) throw new Error("Could not load category items");
+    const data = await res.json();
+    
+    renderCards(data.items || [], browseGrid);
+
+    if (browsePagination) {
+      browsePagination.style.display = "flex";
+      currentBrowseTotalPages = data.total_pages;
+
+      const pageText = data.total_pages
+        ? `Page ${data.current_page} of ${data.total_pages}`
+        : `Page ${data.current_page}`;
+      browsePageIndicator.innerText = pageText;
+
+      browsePrevBtn.disabled = !data.has_prev;
+      browseNextBtn.disabled = !data.has_next;
+    }
+  } catch (err) {
+    browseGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--status-failed); padding: 3rem;">Error loading category: ${err.message}</div>`;
+  }
+}
+
+if (browsePrevBtn) {
+  browsePrevBtn.addEventListener("click", () => {
+    if (currentBrowsePage > 1) {
+      fetchBrowseCategory(currentBrowseCategory, currentBrowsePage - 1);
+      window.scrollTo({ top: browseGrid.offsetTop - 80, behavior: "smooth" });
+    }
+  });
+}
+
+if (browseNextBtn) {
+  browseNextBtn.addEventListener("click", () => {
+    fetchBrowseCategory(currentBrowseCategory, currentBrowsePage + 1);
+    window.scrollTo({ top: browseGrid.offsetTop - 80, behavior: "smooth" });
+  });
+}
+
+// 6. Download Queue Fetching & Global Controls
 async function fetchQueue() {
   try {
     const res = await fetch("/api/downloads/queue");
@@ -518,10 +566,9 @@ async function fetchQueue() {
     const totalInFlight = data.active_count + data.queued_count;
     if (queueBadge) {
       queueBadge.innerText = totalInFlight;
-      queueBadge.style.display = totalInFlight > 0 ? "inline-flex" : "none";
+      queueBadge.style.display = totalInFlight > 0 ? "inline-block" : "none";
     }
 
-    // Global Queue Toolbar state
     const hasActiveOrQueued = (data.active_count + data.queued_count) > 0;
     const hasPaused = (data.paused_count || 0) > 0;
     const hasAnyInQueue = hasActiveOrQueued || hasPaused;
@@ -544,20 +591,21 @@ function renderQueueTasks(tasks) {
   }
 
   queueTaskList.innerHTML = tasks.map(t => {
-    const progress = t.total_bytes > 0 ? ((t.downloaded_bytes / t.total_bytes) * 100).toFixed(1) : 0;
+    const progress = t.total_bytes > 0 ? Math.min(100, Math.max(0, (t.downloaded_bytes / t.total_bytes) * 100)).toFixed(1) : 0;
     const mbDownloaded = (t.downloaded_bytes / (1024 * 1024)).toFixed(2);
     const mbTotal = (t.total_bytes / (1024 * 1024)).toFixed(2);
     const speedKb = (t.speed_bps / 1024).toFixed(0);
     const etaStr = t.eta_seconds != null ? `${t.eta_seconds.toFixed(0)}s left` : "";
+    const cover = t.artwork_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100&auto=format&fit=crop";
 
     let actionButtons = "";
     if (["QUEUED", "DOWNLOADING"].includes(t.status)) {
       actionButtons += `<button class="btn-secondary" style="padding: 0.25rem 0.65rem; font-size: 0.75rem;" onclick="pauseTask('${t.task_id}')">Pause</button>`;
-      actionButtons += `<button class="btn-secondary btn-danger" style="padding: 0.25rem 0.65rem; font-size: 0.75rem;" onclick="cancelTask('${t.task_id}')">Cancel</button>`;
+      actionButtons += `<button class="btn-secondary" style="padding: 0.25rem 0.65rem; font-size: 0.75rem; color: #F87171;" onclick="cancelTask('${t.task_id}')">Cancel</button>`;
     } else if (t.status === "PAUSED") {
       actionButtons += `<button class="btn-primary" style="padding: 0.25rem 0.65rem; font-size: 0.75rem;" onclick="resumeTask('${t.task_id}')">Resume</button>`;
-      actionButtons += `<button class="btn-secondary btn-danger" style="padding: 0.25rem 0.65rem; font-size: 0.75rem;" onclick="cancelTask('${t.task_id}')">Cancel</button>`;
-    } else if (["FAILED", "CANCELLED"].includes(t.status)) {
+      actionButtons += `<button class="btn-secondary" style="padding: 0.25rem 0.65rem; font-size: 0.75rem; color: #F87171;" onclick="cancelTask('${t.task_id}')">Cancel</button>`;
+    } else if (["FAILED", "CANCELLED", "SKIPPED_QUALITY"].includes(t.status)) {
       actionButtons += `<button class="btn-secondary" style="padding: 0.25rem 0.65rem; font-size: 0.75rem;" onclick="retryTask('${t.task_id}')">Retry</button>`;
     }
 
@@ -566,12 +614,16 @@ function renderQueueTasks(tasks) {
     return `
       <div class="task-card">
         <div class="task-header">
-          <div>
-            <div class="task-title">${t.title}</div>
-            <div class="task-sub">${t.artist} • ${t.album_title || 'Single'}</div>
+          <div class="task-left-meta">
+            <img class="task-thumb" src="${cover}" alt="Artwork" onerror="this.src='https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100&auto=format&fit=crop'" />
+            <div>
+              <div class="task-title">${t.title}</div>
+              <div class="task-sub">${t.artist} • ${t.album_title || 'Single'}</div>
+            </div>
           </div>
           <div class="task-actions">
             <span class="status-pill status-${t.status}">${t.status}</span>
+            <span style="font-size: 0.75rem; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; color: var(--accent-champagne-light); font-weight: 600;">${t.selected_bitrate}k</span>
             ${actionButtons}
           </div>
         </div>
@@ -609,7 +661,7 @@ async function retryTask(taskId) {
   fetchQueue();
 }
 
-// Global Queue Controls
+// Global Toolbar Controls
 if (pauseAllBtn) {
   pauseAllBtn.addEventListener("click", async () => {
     const res = await fetch("/api/downloads/queue/pause-all", { method: "POST" });
@@ -638,7 +690,6 @@ if (cancelAllBtn) {
   });
 }
 
-// Queue Maintenance Controls
 if (clearPendingBtn) {
   clearPendingBtn.addEventListener("click", async () => {
     if (!confirm("Remove all pending/queued tasks? Active and completed downloads will not be touched.")) return;
@@ -669,30 +720,55 @@ if (clearFailedQueueBtn) {
   });
 }
 
-// History Controls
+// 7. Download History
 async function fetchHistory() {
   const tbody = document.getElementById("historyTbody");
   if (!tbody) return;
   tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 3rem;">Loading download history...</td></tr>`;
   try {
     const res = await fetch("/api/downloads/history");
-    const items = await res.json();
-    if (items.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 3rem;">No completed downloads yet.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = items.map(h => `
-      <tr>
-        <td><b>${h.title}</b></td>
-        <td>${h.artist}</td>
-        <td>${h.album_title || 'Single'}</td>
-        <td><span style="font-size:0.78rem; background:rgba(212,175,135,0.15); color:var(--accent-champagne-light); padding:2px 6px; border-radius:4px;">${h.bitrate_kbps} kbps</span></td>
-        <td style="font-size:0.8rem; color:var(--text-secondary);">${h.file_path}</td>
-      </tr>
-    `).join("");
+    allHistoryItems = await res.json();
+    renderHistoryRows(allHistoryItems);
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="5" style="color: var(--status-failed);">Failed to load history: ${err.message}</td></tr>`;
   }
+}
+
+function renderHistoryRows(items) {
+  const tbody = document.getElementById("historyTbody");
+  if (!tbody) return;
+
+  if (items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 3rem;">No completed downloads matching your search.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = items.map(h => `
+    <tr>
+      <td><b>${h.title}</b></td>
+      <td>${h.artist}</td>
+      <td>${h.album_title || 'Single'}</td>
+      <td><span style="font-size:0.78rem; background:rgba(216,181,138,0.15); color:var(--accent-champagne-light); padding:2px 6px; border-radius:4px; font-weight:600;">${h.bitrate_kbps} kbps</span></td>
+      <td style="font-size:0.8rem; color:var(--text-secondary); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${h.file_path}">${h.file_path}</td>
+    </tr>
+  `).join("");
+}
+
+if (historySearchInput) {
+  historySearchInput.addEventListener("input", (e) => {
+    const term = e.target.value.toLowerCase().trim();
+    if (!term) {
+      renderHistoryRows(allHistoryItems);
+    } else {
+      const filtered = allHistoryItems.filter(h => 
+        (h.title && h.title.toLowerCase().includes(term)) ||
+        (h.artist && h.artist.toLowerCase().includes(term)) ||
+        (h.album_title && h.album_title.toLowerCase().includes(term)) ||
+        (h.file_path && h.file_path.toLowerCase().includes(term))
+      );
+      renderHistoryRows(filtered);
+    }
+  });
 }
 
 if (clearHistoryBtn) {
@@ -705,7 +781,7 @@ if (clearHistoryBtn) {
   });
 }
 
-// Settings & Native Folder Picker
+// 8. Settings & Native Folder Picker
 async function fetchSettings() {
   try {
     const res = await fetch("/api/settings");
@@ -719,6 +795,11 @@ async function fetchSettings() {
     if (settingConcurrency) settingConcurrency.value = cfg.max_concurrent_downloads;
     if (settingConcurrencyVal) settingConcurrencyVal.innerText = cfg.max_concurrent_downloads;
     if (settingStrict320k) settingStrict320k.checked = cfg.strict_320kbps;
+
+    // Update Sidebar Status Card
+    if (sidebarMaxVal) sidebarMaxVal.innerText = cfg.max_concurrent_downloads;
+    if (sidebarBitrateVal) sidebarBitrateVal.innerText = cfg.strict_320kbps ? "320 kbps" : "Auto";
+    if (sidebarStrictVal) sidebarStrictVal.innerText = cfg.strict_320kbps ? "Strict Mode" : "Standard Mode";
 
     // Diagnostics
     const diagRes = await fetch("/api/diagnostics/providers");
@@ -758,7 +839,7 @@ if (browseFolderBtn) {
         document.getElementById("settingDownloadDir").value = data.selected_path;
         showToast("Folder selected: " + data.selected_path);
       } else if (data.cancelled) {
-        // User cancelled dialog
+        // User closed or cancelled dialog
       } else if (!data.available || data.error) {
         if (settingFolderError) {
           settingFolderError.innerText = data.error || "Native folder picker is unavailable. You can enter or paste the path directly.";
@@ -772,7 +853,12 @@ if (browseFolderBtn) {
       }
     } finally {
       browseFolderBtn.disabled = false;
-      browseFolderBtn.innerText = "📁 Browse Folder";
+      browseFolderBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span>Browse</span>
+      `;
     }
   });
 }
@@ -802,6 +888,7 @@ if (saveSettingsBtn) {
         throw new Error(errData.detail || "Failed to save settings");
       }
       showToast("Settings updated successfully!");
+      fetchSettings();
     } catch (err) {
       if (settingFolderError) {
         settingFolderError.innerText = err.message;
@@ -819,7 +906,7 @@ if (settingConcurrency) {
   });
 }
 
-// Toast notification helper
+// 9. Toast Helper
 function showToast(msg) {
   const existing = document.querySelectorAll(".musichub-toast");
   existing.forEach(t => t.remove());
@@ -827,7 +914,7 @@ function showToast(msg) {
   const toast = document.createElement("div");
   toast.className = "musichub-toast";
   toast.innerText = msg;
-  toast.style.cssText = "position: fixed; bottom: 24px; right: 24px; background: rgba(30, 26, 23, 0.95); backdrop-filter: blur(12px); color: var(--text-pure); border: 1px solid var(--border-glass-active); padding: 12px 22px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5), 0 0 15px rgba(212,175,135,0.25); z-index: 9999; transition: all 0.25s ease; transform: translateY(0);";
+  toast.style.cssText = "position: fixed; bottom: 24px; right: 24px; background: rgba(30, 26, 23, 0.95); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: var(--text-pure); border: 1px solid var(--border-glass-active); padding: 12px 22px; border-radius: 10px; font-weight: 600; font-size: 0.88rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5), 0 0 15px rgba(216,181,138,0.25); z-index: 9999; transition: all 0.25s ease;";
   document.body.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = "0";
@@ -836,9 +923,22 @@ function showToast(msg) {
   }, 2800);
 }
 
-// Initial bootstrap
+// Keyboard shortcuts: Close active modal on Escape
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    if (albumModal && albumModal.classList.contains("active")) {
+      albumModal.classList.remove("active");
+    }
+    if (songModal && songModal.classList.contains("active")) {
+      songModal.classList.remove("active");
+    }
+  }
+});
+
+// Initial Bootstrap
 window.addEventListener("DOMContentLoaded", () => {
   performSearch();
   fetchQueue();
+  fetchSettings();
   queuePollInterval = setInterval(fetchQueue, 1500);
 });

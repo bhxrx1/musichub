@@ -1,8 +1,55 @@
+import os
 import re
+import time
 from pathlib import Path
 from typing import Optional
 from ..config import settings
 from .security import sanitize_filename, assert_safe_audio_extension, SecurityError
+
+def safe_replace_file(src: Path, dst: Path, max_attempts: int = 5, delay: float = 0.05) -> None:
+    """Safely and atomically replaces dst with src on Windows and POSIX,
+    handling transient file locks, WinError 32, and existing file replacements."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    last_err: Optional[Exception] = None
+    for attempt in range(max_attempts):
+        try:
+            # os.replace is atomic and replaces dst if it exists
+            os.replace(str(src), str(dst))
+            return
+        except PermissionError as pe:
+            last_err = pe
+            time.sleep(delay)
+        except OSError as oe:
+            last_err = oe
+            time.sleep(delay)
+
+    # If os.replace still failed after retries, try explicit unlink if dst exists
+    if dst.exists():
+        try:
+            safe_unlink_file(dst, max_attempts=3, delay=delay)
+            os.replace(str(src), str(dst))
+            return
+        except Exception as e:
+            last_err = e
+
+    if last_err:
+        raise last_err
+
+def safe_unlink_file(path: Path, max_attempts: int = 5, delay: float = 0.05) -> bool:
+    """Safely unlinks a file, retrying briefly if locked by a transient OS handle."""
+    if not path.exists():
+        return True
+    for attempt in range(max_attempts):
+        try:
+            path.unlink()
+            return True
+        except PermissionError:
+            time.sleep(delay)
+        except FileNotFoundError:
+            return True
+        except OSError:
+            time.sleep(delay)
+    return not path.exists()
 
 def clean_song_title(raw_title: str, album_title: Optional[str] = None) -> str:
     """Produces a clean song title for filenames:

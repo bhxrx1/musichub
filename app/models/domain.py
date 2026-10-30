@@ -108,7 +108,8 @@ class DownloadTask(BaseModel):
     @property
     def progress_pct(self) -> float:
         if self.total_bytes > 0:
-            return round((self.downloaded_bytes / self.total_bytes) * 100, 1)
+            pct = (self.downloaded_bytes / self.total_bytes) * 100
+            return round(min(100.0, max(0.0, pct)), 1)
         return 0.0
 
 class ProviderInfo(BaseModel):

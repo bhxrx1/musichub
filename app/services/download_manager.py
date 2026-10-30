@@ -9,7 +9,7 @@ from ..config import settings
 from ..database import db
 from ..models.domain import DownloadTask, DownloadStatus, Track, Album, QualityOption
 from .security import validate_download_url, SecurityError
-from .storage import storage
+from .storage import storage, safe_replace_file, safe_unlink_file
 from .metadata import metadata_service
 
 class DownloadManager:
@@ -18,12 +18,22 @@ class DownloadManager:
         self._cancel_events: Dict[str, asyncio.Event] = {}
         self._pause_events: Dict[str, asyncio.Event] = {}
         self._active_workers: Dict[str, asyncio.Task] = {}
+        self._dest_locks: Dict[str, asyncio.Lock] = {}
+        self._dest_locks_mutex = asyncio.Lock()
         self._is_global_paused: bool = False
         self._queue_lock = asyncio.Lock()
 
     @property
     def is_paused(self) -> bool:
         return self._is_global_paused
+
+    async def _get_destination_lock(self, target_path: str) -> asyncio.Lock:
+        """Returns or creates a mutual exclusion lock for the target filesystem destination."""
+        canonical = str(Path(target_path).resolve())
+        async with self._dest_locks_mutex:
+            if canonical not in self._dest_locks:
+                self._dest_locks[canonical] = asyncio.Lock()
+            return self._dest_locks[canonical]
 
     def update_concurrency(self, max_concurrent: int) -> None:
         """Dynamically update maximum concurrent downloads."""
@@ -93,6 +103,18 @@ class DownloadManager:
             bitrate_kbps=quality.bitrate_kbps,
             track_num=track.track_number
         )
+
+        # Check for active or paused task for this track / target path to prevent duplicate overlapping downloads
+        canonical_target = str(target_path.resolve())
+        active_task = db.get_active_task_for_target(canonical_target)
+        if not active_task:
+            active_task = db.get_active_task_for_track(track.id)
+
+        if active_task and active_task.status in (DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING, DownloadStatus.PAUSED):
+            # If paused and global pause is not active, resume it
+            if active_task.status == DownloadStatus.PAUSED and not self._is_global_paused:
+                self.resume_task(active_task.task_id)
+            return active_task
 
         initial_status = DownloadStatus.PAUSED if self._is_global_paused else DownloadStatus.QUEUED
 
@@ -164,13 +186,9 @@ class DownloadManager:
             task.updated_at = time.time()
             db.save_task(task)
             
-            # Clean up .part file on cancel
+            # Clean up .part file on cancel safely
             part_path = storage.get_partial_path(Path(task.target_file_path))
-            if part_path.exists():
-                try:
-                    part_path.unlink()
-                except OSError:
-                    pass
+            safe_unlink_file(part_path)
             return True
         return False
 
@@ -274,11 +292,7 @@ class DownloadManager:
             affected += 1
 
             part_path = storage.get_partial_path(Path(task.target_file_path))
-            if part_path.exists():
-                try:
-                    part_path.unlink()
-                except OSError:
-                    pass
+            safe_unlink_file(part_path)
 
         return affected
 
@@ -300,7 +314,14 @@ class DownloadManager:
                         task.updated_at = time.time()
                         db.save_task(task)
                     return
-                await self._execute_download(task_id, cancel_event, pause_event)
+
+                task = db.get_task(task_id)
+                if not task or task.status in (DownloadStatus.CANCELLED, DownloadStatus.PAUSED, DownloadStatus.COMPLETED):
+                    return
+
+                dest_lock = await self._get_destination_lock(task.target_file_path)
+                async with dest_lock:
+                    await self._execute_download(task_id, cancel_event, pause_event)
         finally:
             self._active_workers.pop(task_id, None)
 
@@ -337,6 +358,7 @@ class DownloadManager:
                 task.status = DownloadStatus.CANCELLED
                 task.updated_at = time.time()
                 db.save_task(task)
+                safe_unlink_file(part_path)
                 return
             if pause_event.is_set() or self._is_global_paused:
                 task.status = DownloadStatus.PAUSED
@@ -352,6 +374,12 @@ class DownloadManager:
 
                 # Determine existing bytes for HTTP Range Resume
                 existing_bytes = part_path.stat().st_size if part_path.exists() else 0
+
+                # If existing partial bytes exceeds total_bytes, partial file is invalid/corrupt
+                if task.total_bytes > 0 and existing_bytes > task.total_bytes:
+                    existing_bytes = 0
+                    safe_unlink_file(part_path)
+
                 headers = {
                     "User-Agent": "MusicHub/1.2 (Windows NT 10.0; Win64; x64) DownloadManager"
                 }
@@ -364,10 +392,13 @@ class DownloadManager:
                         # Handle 416 Range Not Satisfiable
                         if resp.status_code == 416:
                             existing_bytes = 0
-                            if part_path.exists():
-                                part_path.unlink()
+                            safe_unlink_file(part_path)
                             headers.pop("Range", None)
                             async with client.stream("GET", task.download_url, headers=headers) as retry_resp:
+                                retry_resp.raise_for_status()
+                                content_len = retry_resp.headers.get("Content-Length")
+                                if content_len and content_len.isdigit():
+                                    task.total_bytes = int(content_len)
                                 await self._stream_to_disk(retry_resp, task, part_path, final_path, 0, cancel_event, pause_event)
                                 return
 
@@ -383,6 +414,7 @@ class DownloadManager:
                                     task.total_bytes = int(total_str)
                         else:
                             initial_bytes = 0
+                            task.downloaded_bytes = 0
                             content_len = resp.headers.get("Content-Length")
                             if content_len and content_len.isdigit():
                                 task.total_bytes = int(content_len)
@@ -395,8 +427,9 @@ class DownloadManager:
                 task.error_message = f"Security error: {str(se)}"
                 task.updated_at = time.time()
                 db.save_task(task)
+                safe_unlink_file(part_path)
                 return
-            except (httpx.RequestError, httpx.HTTPStatusError, OSError) as e:
+            except (httpx.RequestError, httpx.HTTPStatusError, OSError, IOError) as e:
                 attempt += 1
                 task.error_message = f"Attempt {attempt}/{settings.max_retries} failed: {type(e).__name__} - {str(e)}"
                 task.updated_at = time.time()
@@ -422,6 +455,7 @@ class DownloadManager:
                     if cancel_event.is_set():
                         task.status = DownloadStatus.CANCELLED
                         db.save_task(task)
+                        safe_unlink_file(part_path)
                         return
                     if pause_event.is_set() or self._is_global_paused:
                         task.status = DownloadStatus.PAUSED
@@ -448,7 +482,8 @@ class DownloadManager:
         bytes_since_last = 0
         was_interrupted = False
 
-        with open(part_path, file_mode) as f:
+        f = open(part_path, file_mode)
+        try:
             async for chunk in resp.aiter_bytes(chunk_size=settings.chunk_size_bytes):
                 if cancel_event.is_set():
                     was_interrupted = True
@@ -480,7 +515,7 @@ class DownloadManager:
                     remaining_bytes = max(0, task.total_bytes - downloaded)
                     eta = remaining_bytes / speed if speed > 0 else None
 
-                    task.downloaded_bytes = downloaded
+                    task.downloaded_bytes = min(downloaded, task.total_bytes) if task.total_bytes > 0 else downloaded
                     task.speed_bps = speed
                     task.eta_seconds = eta
                     task.updated_at = now
@@ -488,14 +523,19 @@ class DownloadManager:
 
                     last_time = now
                     bytes_since_last = 0
+        finally:
+            try:
+                f.flush()
+            except Exception:
+                pass
+            try:
+                f.close()
+            except Exception:
+                pass
 
-        # If cancelled, clean up partial file after file handle is closed
+        # If cancelled, clean up partial file safely
         if cancel_event.is_set():
-            if part_path.exists():
-                try:
-                    part_path.unlink()
-                except OSError:
-                    pass
+            safe_unlink_file(part_path)
             return
 
         if pause_event.is_set() or self._is_global_paused:
@@ -505,10 +545,18 @@ class DownloadManager:
         if was_interrupted:
             return
 
+        # Validate that all expected bytes were received
+        if task.total_bytes > 0 and downloaded < task.total_bytes:
+            task.downloaded_bytes = downloaded
+            task.speed_bps = 0.0
+            task.updated_at = time.time()
+            db.save_task(task)
+            raise IOError(f"Premature stream end: received {downloaded}/{task.total_bytes} bytes")
+
         # Finished receiving all audio bytes
         if task.total_bytes == 0:
             task.total_bytes = downloaded
-        task.downloaded_bytes = downloaded
+        task.downloaded_bytes = task.total_bytes
         task.speed_bps = 0.0
         task.eta_seconds = 0.0
 
@@ -549,10 +597,8 @@ class DownloadManager:
         except Exception as tag_err:
             print(f"[DownloadManager] Non-fatal ID3 metadata warning for '{task.title}': {tag_err}")
 
-        # Atomic rename .part -> final target file
-        if final_path.exists():
-            final_path.unlink()
-        part_path.rename(final_path)
+        # Atomic replacement .part -> final target file with Windows lock handling
+        safe_replace_file(part_path, final_path)
 
         task.status = DownloadStatus.COMPLETED
         task.completed_at = time.time()

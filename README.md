@@ -135,12 +135,12 @@ python scripts/test_live_browse_pagination.py
 ### 6. Launch the Application
 
 ```powershell
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 ```
 
 Open your browser and navigate to:
 ```
-http://127.0.0.1:8000
+http://127.0.0.1:8001
 ```
 
 ---

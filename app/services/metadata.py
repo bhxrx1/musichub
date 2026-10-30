@@ -20,7 +20,7 @@ from mutagen.id3 import (
 
 from ..models.domain import Track, Album
 from .security import validate_download_url, SecurityError
-from .storage import clean_song_title, clean_album_title
+from .storage import clean_song_title, clean_album_title, safe_replace_file, safe_unlink_file
 
 class MetadataError(Exception):
     """Raised when ID3 metadata tagging or validation fails."""
@@ -155,18 +155,12 @@ class MetadataService:
                 raise MetadataError("ID3 validation failed: TIT2 header missing")
 
             # 5. Atomically replace final file with verified tagged file
-            if file_path.exists():
-                file_path.unlink()
-            tagging_file.rename(file_path)
+            safe_replace_file(tagging_file, file_path)
             return True
 
         except Exception as e:
             # Clean up working file on failure
-            if tagging_file.exists():
-                try:
-                    tagging_file.unlink()
-                except OSError:
-                    pass
+            safe_unlink_file(tagging_file)
             raise MetadataError(f"Failed to apply metadata: {e}")
 
 metadata_service = MetadataService()

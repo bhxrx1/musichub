@@ -3,6 +3,7 @@ from typing import List, Optional, Dict
 from .base import BaseMusicProvider
 from ..models.domain import Album, Track, QualityOption, SearchResultItem
 from ..models.schemas import ProviderDiagnosticResponse, CategoryBrowseResponse
+from ..config import settings
 
 MOCK_ALBUMS: Dict[str, Album] = {}
 MOCK_TRACKS: Dict[str, Track] = {}
@@ -21,8 +22,8 @@ def _init_mock_catalogue():
             track_number=1,
             artwork_url="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop",
             qualities=[
-                QualityOption(bitrate_kbps=128, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-101/128", file_size_bytes=4400000, is_confirmed_320k=False),
-                QualityOption(bitrate_kbps=320, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-101/320", file_size_bytes=11000000, is_confirmed_320k=True),
+                QualityOption(bitrate_kbps=128, format="mp3", download_url=f"http://127.0.0.1:{settings.port}/mock-cdn/stream/mock-trk-101/128", file_size_bytes=4400000, is_confirmed_320k=False),
+                QualityOption(bitrate_kbps=320, format="mp3", download_url=f"http://127.0.0.1:{settings.port}/mock-cdn/stream/mock-trk-101/320", file_size_bytes=11000000, is_confirmed_320k=True),
             ]
         ),
         Track(
@@ -36,8 +37,8 @@ def _init_mock_catalogue():
             track_number=2,
             artwork_url="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop",
             qualities=[
-                QualityOption(bitrate_kbps=128, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-102/128", file_size_bytes=3800000, is_confirmed_320k=False),
-                QualityOption(bitrate_kbps=320, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-102/320", file_size_bytes=9600000, is_confirmed_320k=True),
+                QualityOption(bitrate_kbps=128, format="mp3", download_url=f"http://127.0.0.1:{settings.port}/mock-cdn/stream/mock-trk-102/128", file_size_bytes=3800000, is_confirmed_320k=False),
+                QualityOption(bitrate_kbps=320, format="mp3", download_url=f"http://127.0.0.1:{settings.port}/mock-cdn/stream/mock-trk-102/320", file_size_bytes=9600000, is_confirmed_320k=True),
             ]
         ),
         Track(
@@ -52,7 +53,7 @@ def _init_mock_catalogue():
             artwork_url="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop",
             # This track deliberately has ONLY 128 kbps to test strict-320k mode behavior
             qualities=[
-                QualityOption(bitrate_kbps=128, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-103/128", file_size_bytes=3300000, is_confirmed_320k=False),
+                QualityOption(bitrate_kbps=128, format="mp3", download_url=f"http://127.0.0.1:{settings.port}/mock-cdn/stream/mock-trk-103/128", file_size_bytes=3300000, is_confirmed_320k=False),
             ]
         ),
     ]
@@ -83,8 +84,8 @@ def _init_mock_catalogue():
             track_number=1,
             artwork_url="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop",
             qualities=[
-                QualityOption(bitrate_kbps=128, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-201/128", file_size_bytes=7500000, is_confirmed_320k=False),
-                QualityOption(bitrate_kbps=320, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-201/320", file_size_bytes=18900000, is_confirmed_320k=True),
+                QualityOption(bitrate_kbps=128, format="mp3", download_url=f"http://127.0.0.1:{settings.port}/mock-cdn/stream/mock-trk-201/128", file_size_bytes=7500000, is_confirmed_320k=False),
+                QualityOption(bitrate_kbps=320, format="mp3", download_url=f"http://127.0.0.1:{settings.port}/mock-cdn/stream/mock-trk-201/320", file_size_bytes=18900000, is_confirmed_320k=True),
             ]
         ),
         Track(
@@ -98,8 +99,8 @@ def _init_mock_catalogue():
             track_number=2,
             artwork_url="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop",
             qualities=[
-                QualityOption(bitrate_kbps=128, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-202/128", file_size_bytes=6100000, is_confirmed_320k=False),
-                QualityOption(bitrate_kbps=320, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-202/320", file_size_bytes=15400000, is_confirmed_320k=True),
+                QualityOption(bitrate_kbps=128, format="mp3", download_url=f"http://127.0.0.1:{settings.port}/mock-cdn/stream/mock-trk-202/128", file_size_bytes=6100000, is_confirmed_320k=False),
+                QualityOption(bitrate_kbps=320, format="mp3", download_url=f"http://127.0.0.1:{settings.port}/mock-cdn/stream/mock-trk-202/320", file_size_bytes=15400000, is_confirmed_320k=True),
             ]
         )
     ]
@@ -131,8 +132,8 @@ def _init_mock_catalogue():
         track_number=1,
         artwork_url="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop",
         qualities=[
-            QualityOption(bitrate_kbps=128, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-single-01/128", file_size_bytes=3900000, is_confirmed_320k=False),
-            QualityOption(bitrate_kbps=320, format="mp3", download_url="http://127.0.0.1:8000/mock-cdn/stream/mock-trk-single-01/320", file_size_bytes=9800000, is_confirmed_320k=True),
+            QualityOption(bitrate_kbps=128, format="mp3", download_url=f"http://127.0.0.1:{settings.port}/mock-cdn/stream/mock-trk-single-01/128", file_size_bytes=3900000, is_confirmed_320k=False),
+            QualityOption(bitrate_kbps=320, format="mp3", download_url=f"http://127.0.0.1:{settings.port}/mock-cdn/stream/mock-trk-single-01/320", file_size_bytes=9800000, is_confirmed_320k=True),
         ]
     )
 

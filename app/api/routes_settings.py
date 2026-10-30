@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, HTTPException
 
 from ..config import settings
+from ..database import db
 from ..services.storage import storage
 from ..services.download_manager import download_manager
 from ..services.folder_picker import validate_directory_path, open_native_folder_picker
@@ -37,23 +38,28 @@ async def update_settings(req: UpdateSettingsRequest) -> Dict[str, Any]:
             raise HTTPException(status_code=400, detail=msg)
         settings.download_dir = res_path
         storage.set_download_dir(res_path)
+        db.set_setting("download_dir", str(res_path))
 
     if req.max_concurrent_downloads is not None:
         if not (1 <= req.max_concurrent_downloads <= 10):
             raise HTTPException(status_code=400, detail="Max concurrent downloads must be between 1 and 10.")
         download_manager.update_concurrency(req.max_concurrent_downloads)
+        db.set_setting("max_concurrent_downloads", str(req.max_concurrent_downloads))
 
     if req.strict_320kbps is not None:
         settings.strict_320kbps = req.strict_320kbps
+        db.set_setting("strict_320kbps", "true" if req.strict_320kbps else "false")
 
     if req.preferred_bitrate_kbps is not None:
         settings.preferred_bitrate_kbps = req.preferred_bitrate_kbps
+        db.set_setting("preferred_bitrate_kbps", str(req.preferred_bitrate_kbps))
 
     if req.pagalnew_base_url:
         settings.update_pagalnew_domain(req.pagalnew_base_url)
         p_prov = registry.get("pagalnew")
         if p_prov and hasattr(p_prov, "_base_url"):
             p_prov._base_url = settings.pagalnew_base_url
+        db.set_setting("pagalnew_base_url", settings.pagalnew_base_url)
 
     return await get_settings()
 

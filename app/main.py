@@ -10,6 +10,9 @@ from .api.router import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from .database import db
+    from .config import load_persisted_settings
+    load_persisted_settings(db)
     settings.ensure_directories()
     yield
 

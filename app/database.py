@@ -52,6 +52,8 @@ class Database:
             );
 
             CREATE INDEX IF NOT EXISTS idx_tasks_status ON download_tasks(status);
+            CREATE INDEX IF NOT EXISTS idx_tasks_track_id ON download_tasks(track_id);
+            CREATE INDEX IF NOT EXISTS idx_tasks_target_path ON download_tasks(target_file_path);
 
             CREATE TABLE IF NOT EXISTS download_history (
                 history_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,6 +77,11 @@ class Database:
                 data_json TEXT NOT NULL,
                 cached_at REAL NOT NULL,
                 PRIMARY KEY (album_id, provider)
+            );
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
             );
             """)
 
@@ -148,6 +155,28 @@ class Database:
                 (DownloadStatus.QUEUED.value, DownloadStatus.DOWNLOADING.value)
             ).fetchall()
             return [self._row_to_task(r) for r in rows]
+
+    def get_active_task_for_track(self, track_id: str) -> Optional[DownloadTask]:
+        """Finds any current active or paused task for a given track ID to avoid duplicate queueing."""
+        with self.get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM download_tasks WHERE track_id = ? AND status IN (?, ?, ?) ORDER BY created_at DESC LIMIT 1",
+                (track_id, DownloadStatus.QUEUED.value, DownloadStatus.DOWNLOADING.value, DownloadStatus.PAUSED.value)
+            ).fetchone()
+            if row:
+                return self._row_to_task(row)
+            return None
+
+    def get_active_task_for_target(self, target_file_path: str) -> Optional[DownloadTask]:
+        """Finds any current active or paused task targeting the given destination path."""
+        with self.get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM download_tasks WHERE target_file_path = ? AND status IN (?, ?, ?) ORDER BY created_at DESC LIMIT 1",
+                (target_file_path, DownloadStatus.QUEUED.value, DownloadStatus.DOWNLOADING.value, DownloadStatus.PAUSED.value)
+            ).fetchone()
+            if row:
+                return self._row_to_task(row)
+            return None
 
     def get_tasks_by_status(self, statuses: List[DownloadStatus]) -> List[DownloadTask]:
         """Returns tasks matching any of the specified statuses."""
@@ -232,6 +261,27 @@ class Database:
                 return Album.model_validate_json(row["data_json"])
             return None
 
+    # --- App Settings Operations ---
+    def set_setting(self, key: str, value: Any) -> None:
+        val_str = json.dumps(value) if not isinstance(value, str) else value
+        with self.get_connection() as conn:
+            conn.execute("""
+            INSERT INTO app_settings (key, value) VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+            """, (key, val_str))
+
+    def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        with self.get_connection() as conn:
+            row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+            if row:
+                return row["value"]
+            return default
+
+    def get_all_settings(self) -> Dict[str, str]:
+        with self.get_connection() as conn:
+            rows = conn.execute("SELECT key, value FROM app_settings").fetchall()
+            return {r["key"]: r["value"] for r in rows}
+
     def _row_to_task(self, row: sqlite3.Row) -> DownloadTask:
         # Check if optional columns exist in row keys
         keys = row.keys()
@@ -265,3 +315,9 @@ class Database:
         )
 
 db = Database()
+
+try:
+    from .config import load_persisted_settings
+    load_persisted_settings(db)
+except Exception:
+    pass
